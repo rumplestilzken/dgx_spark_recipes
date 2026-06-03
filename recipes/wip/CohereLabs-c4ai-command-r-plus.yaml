@@ -1,19 +1,19 @@
-# Recipe: Llama-4-Scout-17B-16E-Instruct-NVFP4
-# RedHatAI/Llama-4-Scout-17B-16E-Instruct-NVFP4 model in online NVFP4 quantization
+# Recipe: CohereLabs/c4ai-command-r-plus
+# CohereLabs/c4ai-command-r-plus model in online NVFP4 quantization
 
 recipe_version: "1"
-name: Llama-4-Scout-17B-16E-Instruct-NVFP4
-description: vLLM serving RedHatAI/Llama-4-Scout-17B-16E-Instruct-NVFP4 with 1M context (per node)
+name: CohereLabs/c4ai-command-r-plus
+description: vLLM serving Sehyo/Qwen3.5-122B-A10B-NVFP4
 
 # HuggingFace model to download (optional, for --download-model)
-model: RedHatAI/Llama-4-Scout-17B-16E-Instruct-NVFP4
+model: CohereLabs/c4ai-command-r-plus
 
 # Only cluster is supported
 cluster_only: true
 solo_only: false
 
 # Container image to use
-container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
+container: vllm-node-tf5
 
 build_args:
   - --tf5
@@ -22,30 +22,34 @@ build_args:
 defaults:
   port: 8000
   host: 0.0.0.0
-  max_model_len: 1000000
+  max_model_len: 73000
   # max_num_seq: 256
   # max_num_batched_tokens: 2048
-  tensor_parallel: 3
+  tensor_parallel: 2
   pipeline_parallel: 1
-  gpu_memory_utilization: 0.80
-  # load_format: instanttensor
+  gpu_memory_utilization: 0.92
+  # quantization: compressed-tensors
+  # kv_cache_dtype: fp8
   load_format: instanttensor
-  max_num_batched_tokens: 16384
+  max_num_batched_tokens: 2048
   max_num_seq: 10
 
 # Environment variables
 env:
-  HF_HUB_OFFLINE: 1
   # VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS: 0
+  # VLLM_USE_V1: 0
 
 # The vLLM serve command template
 command: |
-  vllm serve {model}  \
+  vllm serve CohereLabs/c4ai-command-r-plus  \
     --gpu-memory-utilization {gpu_memory_utilization} \
-    --max-model-len {max_model_len} \
     --port {port} \
     --host {host} \
     --enable-prefix-caching \
     -tp {tensor_parallel}  \
-    -pp {pipeline_parallel} \
+    -pp {pipeline_parallel}  \
+    --max_num_batched_tokens {max_num_batched_tokens} \
+    --max_num_seq {max_num_seq} \
+    --max-model-len {max_model_len} \
+    --load-format {load_format} \
     --distributed-executor-backend ray

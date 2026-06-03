@@ -1,12 +1,12 @@
-# Recipe: Qwen3.5-397B-A17B-NVFP4
-# nvidia/Qwen3.5-397B-A17B-NVFP4 model in online NVFP4 quantization
+# Recipe: Meta-Llama-3.1-405B-FP8
+# RedHatAI/Meta-Llama-3.1-405B-FP8 model in online NVFP4 quantization
 
 recipe_version: "1"
-name: nvidia/Qwen3.5-397B-A17B-NVFP4
-description: vLLM serving nvidia/Qwen3.5-397B-A17B-NVFP4
+name: RedHatAI/Meta-Llama-3.1-405B-FP8
+description: vLLM serving RedHatAI/Meta-Llama-3.1-405B-FP8
 
 # HuggingFace model to download (optional, for --download-model)
-model: nvidia/Qwen3.5-397B-A17B-NVFP4
+model: RedHatAI/Meta-Llama-3.1-405B-FP8
 
 # Only cluster is supported
 cluster_only: true
@@ -20,10 +20,6 @@ container: vllm-node-tf5
 build_args:
   - --tf5
 
-# Mod required to fix ROPE syntax error
-mods:
-  - mods/fix-qwen3.5-chat-template
-
 # Default settings (can be overridden via CLI)
 defaults:
   port: 8000
@@ -31,14 +27,14 @@ defaults:
   # max_model_len: 262144
   # max_num_seq: 256
   # max_num_batched_tokens: 2048
-  tensor_parallel: 1
-  pipeline_parallel: 3
-  gpu_memory_utilization: 0.87
-  quantization: compressed-tensors
+  tensor_parallel: 3
+  pipeline_parallel: 1
+  gpu_memory_utilization: 0.85
+  # quantization: compressed-tensors
   # kv_cache_dtype: fp8
   load_format: instanttensor
-  max_num_batched_tokens: 4176
-  max_num_seq: 10
+  max_num_batched_tokens: 2048
+  max_num_seq: 2
 
 # Environment variables
 env:
@@ -54,8 +50,6 @@ command: |
     --enable-prefix-caching \
     -tp {tensor_parallel}  \
     -pp {pipeline_parallel} \
-    --quantization {quantization} \
-    --load-format {load_format} \
     --max-num-batched-tokens {max_num_batched_tokens} \
     --max-num-seq {max_num_seq} \
     --distributed-executor-backend ray 

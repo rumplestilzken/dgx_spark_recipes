@@ -2,11 +2,11 @@
 # nvidia/Qwen3.5-397B-A17B-NVFP4 model in online NVFP4 quantization
 
 recipe_version: "1"
-name: nvidia/Qwen3.5-397B-A17B-NVFP4
-description: vLLM serving nvidia/Qwen3.5-397B-A17B-NVFP4
+name: meta-llama/Llama-4-Scout-17B-16E
+description: vLLM serving meta-llama/Llama-4-Scout-17B-16E
 
 # HuggingFace model to download (optional, for --download-model)
-model: nvidia/Qwen3.5-397B-A17B-NVFP4
+model: meta-llama/Llama-4-Scout-17B-16E
 
 # Only cluster is supported
 cluster_only: true
@@ -20,10 +20,6 @@ container: vllm-node-tf5
 build_args:
   - --tf5
 
-# Mod required to fix ROPE syntax error
-mods:
-  - mods/fix-qwen3.5-chat-template
-
 # Default settings (can be overridden via CLI)
 defaults:
   port: 8000
@@ -33,8 +29,8 @@ defaults:
   # max_num_batched_tokens: 2048
   tensor_parallel: 1
   pipeline_parallel: 3
-  gpu_memory_utilization: 0.87
-  quantization: compressed-tensors
+  gpu_memory_utilization: 0.8
+  # quantization: compressed-tensors
   # kv_cache_dtype: fp8
   load_format: instanttensor
   max_num_batched_tokens: 4176
@@ -47,15 +43,12 @@ env:
 
 # The vLLM serve command template
 command: |
-  vllm serve nvidia/Qwen3.5-397B-A17B-NVFP4  \
+  vllm serve meta-llama/Llama-4-Scout-17B-16E \
     --gpu-memory-utilization {gpu_memory_utilization} \
     --port {port} \
     --host {host} \
     --enable-prefix-caching \
     -tp {tensor_parallel}  \
-    -pp {pipeline_parallel} \
-    --quantization {quantization} \
-    --load-format {load_format} \
     --max-num-batched-tokens {max_num_batched_tokens} \
     --max-num-seq {max_num_seq} \
     --distributed-executor-backend ray 

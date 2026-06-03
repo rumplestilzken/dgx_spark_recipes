@@ -1,0 +1,28 @@
+solo_only: false
+build_args:
+  - '--tf5'
+recipe_version: '1'
+description: vLLM serving RedHatAI/Qwen3-VL-235B-A22B-Instruct-NVFP4
+model: RedHatAI/Qwen3-VL-235B-A22B-Instruct-NVFP4
+env:
+mods:
+cluster_only: false
+name: Qwen3-VL-235B-A22B-Instruct-NVFP4
+command: |
+  vllm serve RedHatAI/Qwen3-VL-235B-A22B-Instruct-NVFP4  \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --port {port} \
+    --host {host} \
+    --enable-prefix-caching \
+    -tp {tensor_parallel} \
+    -pp {pipeline_parallel} \
+    --load-format {load_format} \
+    --distributed-executor-backend ray \
+defaults:
+  gpu_memory_utilization: 0.8236
+  tensor_parallel: 3
+  pipeline_parallel: 1
+  host: 0.0.0.0
+  port: 8000
+  load_format: instanttensor
+container: vllm-node-tf5

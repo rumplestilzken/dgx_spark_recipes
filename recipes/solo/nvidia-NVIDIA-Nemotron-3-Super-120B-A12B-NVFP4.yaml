@@ -28,7 +28,7 @@ defaults:
   # max_num_seq: 256
   # max_num_batched_tokens: 2048
   tensor_parallel: 1
-  gpu_memory_utilization: 0.8 
+  gpu_memory_utilization: 0.8025
   # quantization: compressed-tensors
   # kv_cache_dtype: fp8
   load_format: instanttensor
