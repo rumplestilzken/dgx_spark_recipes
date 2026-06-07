@@ -23,6 +23,8 @@ build_args:
 # Mod required to fix ROPE syntax error
 mods:
   - mods/fix-qwen3.5-chat-template
+  - mods/fix-qwen3.5-autoround
+  # - mods/gpu-mem-util-gb
 
 # Default settings (can be overridden via CLI)
 defaults:
@@ -33,17 +35,20 @@ defaults:
   # max_num_batched_tokens: 2048
   tensor_parallel: 1
   pipeline_parallel: 3
-  gpu_memory_utilization: 0.87
-  quantization: compressed-tensors
+  gpu_memory_utilization: 0.85
+  # quantization: compressed-tensors
   # kv_cache_dtype: fp8
   load_format: instanttensor
   max_num_batched_tokens: 4176
   max_num_seq: 10
 
-# Environment variables
 env:
-  # VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS: 0
-  # PYTORCH_CUDA_ALLOC_CONF: "expands
+  VLLM_USE_DEEP_GEMM: '0'
+  OMP_NUM_THREADS: '3'
+  VLLM_USE_FLASHINFER_SAMPLER: '0'
+  VLLM_USE_FLASHINFER_MOE_FP16: '1'
+  VLLM_MARLIN_USE_ATOMIC_ADD: '1'
+  PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
 
 # The vLLM serve command template
 command: |
@@ -54,7 +59,6 @@ command: |
     --enable-prefix-caching \
     -tp {tensor_parallel}  \
     -pp {pipeline_parallel} \
-    --quantization {quantization} \
     --load-format {load_format} \
     --max-num-batched-tokens {max_num_batched_tokens} \
     --max-num-seq {max_num_seq} \
