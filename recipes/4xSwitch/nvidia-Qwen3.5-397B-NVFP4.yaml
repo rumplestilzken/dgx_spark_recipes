@@ -43,7 +43,7 @@ defaults:
   # quantization: compressed-tensors
   # kv_cache_dtype: fp8
   load_format: instanttensor
-  max_num_batched_tokens: 32768
+  max_num_batched_tokens: 4177
   max_num_seq: 256
   # speculative: true
   # draft_model: AngelSlim/Qwen3-1.7B_eagle3

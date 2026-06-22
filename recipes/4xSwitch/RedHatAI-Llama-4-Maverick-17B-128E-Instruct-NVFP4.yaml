@@ -6,42 +6,49 @@ name: RedHatAI/Llama-4-Maverick-17B-128E-Instruct-NVFP4
 description: vLLM serving RedHatAI/Llama-4-Maverick-17B-128E-Instruct-NVFP4
 
 # HuggingFace model to download (optional, for --download-model)
-model: nvidia/Qwen3.5-397B-A17B-NVFP4
+model: RedHatAI/Llama-4-Maverick-17B-128E-Instruct-NVFP4
 
 # Only cluster is supported
 cluster_only: true
 solo_only: false
 
+container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
 # Container image to use
-container: vllm-node-tf5
+# container: vllm-node-tf5
 
 build_args:
   - --tf5
+
+runtime_args:
+  - "--ulimit -n"
 
 # Default settings (can be overridden via CLI)
 defaults:
   port: 8000
   host: 0.0.0.0
-  max_model_len: 262144
-  tensor_parallel: 1
-  pipeline_parallel: 3
-  gpu_memory_utilization: 0.90
-  # load_format: instanttensor
+  # max_model_len: 262144
+  tensor_parallel: 4
+  pipeline_parallel: 1
+  gpu_memory_utilization: 0.85
+  load_format: instanttensor
   max_num_batched_tokens: 2048
-  max_num_seq: 10
+  max_num_seq: 256
 
 # Environment variables
 env:
-  # VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS: 0
+  TORCH_CUDA_ARCH_LIST: "12.1a" 
+  # NCCL_DEBUG: INFO
+  # NCCL_MAX_NCHANNELS: 8
+  # NCCL_MIN_NCHANNELS: 4
 
 # The vLLM serve command template
 command: |
   vllm serve RedHatAI/Llama-4-Maverick-17B-128E-Instruct-NVFP4  \
-    --gpu_memory_utilization {gpu_memory_utilization}
-    --max_model_len {max_model_len} \
+    --gpu_memory_utilization {gpu_memory_utilization} \
     --port {port} \
     --host {host} \
     --enable-prefix-caching \
     -tp {tensor_parallel}  \
-    -pp {pipeline_parallel} \
+    -ep \
+    --load-format {load_format} \
     --distributed-executor-backend ray
