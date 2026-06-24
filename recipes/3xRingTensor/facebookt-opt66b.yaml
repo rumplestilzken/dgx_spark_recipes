@@ -1,0 +1,50 @@
+# Recipe: facebook/opt-66b
+# facebook/opt-66b model in online NVFP4 quantization
+
+recipe_version: "1"
+name: facebook/opt-66b
+
+# HuggingFace model to download (optional, for --download-model)
+model: facebook/opt-66b
+
+# Only cluster is supported
+cluster_only: true
+solo_only: false
+
+# Container image to use
+container: vllm-node-tf5
+
+build_args:
+  - --tf5
+
+# Default settings (can be overridden via CLI)
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  # max_model_len: 262144
+  # max_num_seq: 256
+  # max_num_batched_tokens: 2048
+  tensor_parallel: 3
+  gpu_memory_utilization: 0.80
+  # quantization: compressed-tensors
+  # kv_cache_dtype: fp8
+  load_format: fastsafetensors
+  max_num_batched_tokens: 16384
+  max_num_seq: 256
+
+# Environment variables
+env:
+  # VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS: 0
+  HF_HUB_OFFLINE: 0 
+
+# The vLLM serve command template
+command: |
+  vllm serve facebook/opt-66b \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --port {port} \
+    --host {host} \
+    --enable-prefix-caching \
+    -tp {tensor_parallel}  \
+    --max_num_batched_tokens {max_num_batched_tokens} \
+    --max_num_seq {max_num_seq} \
+    --distributed-executor-backend ray
