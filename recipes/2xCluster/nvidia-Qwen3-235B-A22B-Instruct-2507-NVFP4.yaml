@@ -1,0 +1,62 @@
+# Recipe: Qwen3-235B-A22B-Instruct-2507-NVFP4 
+# nvidia/Qwen3-235B-A22B-Instruct-2507-NVFP4  model in online NVFP4 quantization
+
+recipe_version: "1"
+name: nvidia/Qwen3-235B-A22B-Instruct-2507-NVFP4 
+description: vLLM serving nvidia/Qwen3-235B-A22B-Instruct-2507-NVFP4 
+
+# HuggingFace model to download (optional, for --download-model)
+model: nvidia/Qwen3-235B-A22B-Instruct-2507-NVFP4 
+
+# Only cluster is supported
+cluster_only: true
+solo_only: false
+
+# Container image to use
+container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
+# container: vllm:latest
+# container: vllm-node-tf5
+
+build_args:
+  - --tf5
+
+# Mod required to fix ROPE syntax error
+mods:
+  # - mods/fix-qwen3.5-chat-template
+  # - mods/fix-qwen3.5-autoround
+  # - mods/gpu-mem-util-gb
+
+# Default settings (can be overridden via CLI)
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  # max_model_len: 262144
+  # max_num_seq: 256
+  # max_num_batched_tokens: 2048
+  tensor_parallel: 2
+  pipeline_parallel: 1
+  gpu_memory_utilization: 0.75
+  # quantization: compressed-tensors
+  # kv_cache_dtype: fp8
+  load_format: instanttensor
+  max_num_batched_tokens: 2048
+  max_num_seq: 256
+
+env:
+
+# The vLLM serve command template
+command: |
+  vllm serve nvidia/Qwen3-235B-A22B-Instruct-2507-NVFP4   \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --port {port} \
+    --host {host} \
+    --enable-prefix-caching \
+    -tp {tensor_parallel}  \
+    -pp {pipeline_parallel} \
+    --load-format {load_format} \
+    --max-num-batched-tokens {max_num_batched_tokens} \
+    --max-num-seq {max_num_seq} \
+    --kv-cache-dtype fp8 \
+    --language-model-only \
+    --reasoning-parser qwen3 \
+    --distributed-executor-backend ray 
