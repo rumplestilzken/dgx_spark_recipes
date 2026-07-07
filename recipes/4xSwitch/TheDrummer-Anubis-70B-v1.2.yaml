@@ -1,0 +1,45 @@
+# Recipe: TheDrummer/Anubis-70B-v1.2  
+# TheDrummer/Anubis-70B-v1.2   model in online NVFP4 quantization
+
+recipe_version: "1"
+name: TheDrummer/Anubis-70B-v1.2  
+description: vLLM serving TheDrummer/Anubis-70B-v1.2  
+
+# HuggingFace model to download (optional, for --download-model)
+model: TheDrummer/Anubis-70B-v1.2  
+
+# Only cluster is supported
+cluster_only: true
+solo_only: false
+
+# container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
+# Container image to use
+container: vllm-node-tf5
+
+build_args:
+  - --tf5
+
+# Default settings (can be overridden via CLI)
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  # max_model_len: 262144
+  tensor_parallel: 4
+  pipeline_parallel: 1
+  gpu_memory_utilization: 0.85
+  load_format: instanttensor
+  max_num_batched_tokens: 2048
+
+# Environment variables
+env:
+  
+# The vLLM serve command template
+command: |
+  vllm serve TheDrummer/Anubis-70B-v1.2 \
+    --gpu_memory_utilization {gpu_memory_utilization} \
+    --port {port} \
+    --host {host} \
+    --enable-prefix-caching \
+    -tp {tensor_parallel}  \
+    --load-format {load_format} \
+    --distributed-executor-backend ray
