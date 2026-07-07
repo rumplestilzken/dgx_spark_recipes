@@ -5,7 +5,6 @@ defaults:
   host: 0.0.0.0
   tensor_parallel: 4
   gpu_memory_utilization: 0.825
-  max_model_len: 256000
   max_num_batched_tokens: 6144
   max_num_seqs: 256
   tool_call_parser: deepseek_v4
