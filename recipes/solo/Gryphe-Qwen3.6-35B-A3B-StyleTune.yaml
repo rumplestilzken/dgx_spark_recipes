@@ -2,7 +2,7 @@
 # Gryphe/Qwen3.6-35B-A3B-StyleTune in online NVFP4 quantization
 
 recipe_version: "1"
-name: Gryphe/Qwen3.6-35B-A3B-StyleTune-4x
+name: Gryphe/Qwen3.6-35B-A3B-StyleTune
 description: vLLM serving Gryphe/Qwen3.6-35B-A3B-StyleTune
 
 # HuggingFace model to download (optional, for --download-model)
@@ -24,7 +24,7 @@ defaults:
   port: 8000
   host: 0.0.0.0
   # max_model_len: 262144
-  tensor_parallel: 4
+  tensor_parallel: 1
   pipeline_parallel: 1
   gpu_memory_utilization: 0.85
   load_format: instanttensor
