@@ -13,8 +13,8 @@ cluster_only: true
 solo_only: false
 
 # Container image to use
-container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
-# container: vllm:latest
+# container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
+container: vllm:latest
 # container: vllm-node-tf5
 
 build_args:
@@ -58,5 +58,4 @@ command: |
     --max-num-seq {max_num_seq} \
     --kv-cache-dtype fp8 \
     --language-model-only \
-    --reasoning-parser qwen3 \
     --distributed-executor-backend ray 
