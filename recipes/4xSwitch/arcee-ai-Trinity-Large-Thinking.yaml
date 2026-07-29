@@ -1,0 +1,71 @@
+# Recipe: Trinity-Large-Thinking-NVFP4
+# arcee-ai/Trinity-Large-Thinking-NVFP4 model in online NVFP4 quantization
+
+recipe_version: "1"
+name: arcee-ai/Trinity-Large-Thinking-NVFP4
+description: vLLM serving arcee-ai/Trinity-Large-Thinking-NVFP4
+
+# HuggingFace model to download (optional, for --download-model)
+model: arcee-ai/Trinity-Large-Thinking-NVFP4
+
+# Only cluster is supported
+cluster_only: true
+solo_only: false
+
+# runtime: vllm-ray
+# runtime: vllm-distributed
+# runtime: trtllm
+
+# Container image to use
+# container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
+# container: vllm:latest
+container: vllm-node-tf5
+# conntainer: nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc18
+
+build_args:
+  - --tf5
+
+mods:
+  - fix-Trinity-embed
+
+# Default settings (can be overridden via CLI)
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 4
+  pipeline_parallel: 1
+  # expert_parallel: 1
+  data_parallel: 1
+  gpu_memory_utilization: 0.75
+  # quantization: compressed-tensors
+  # kv_cache_dtype: fp8
+  load_format: instanttensor
+  max_num_batched_tokens: 4177
+  max_num_seq: 256
+  # speculative: true
+  # draft_model: AngelSlim/Qwen3-1.7B_eagle3
+  # num_drafts: 8
+  # backend: pytorch
+
+env:
+  VLLM_ALLOW_LONG_MAX_MODEL_LEN: 1
+  VLLM_TEST_FORCE_FP8_MARLIN: 1
+  TRINITY_EMBED_BF16: 1
+
+# The vLLM serve command template
+command: |
+  vllm serve arcee-ai/Trinity-Large-Thinking-NVFP4  \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --port {port} \
+    --host {host} \
+    --enable-prefix-caching \
+    -tp {tensor_parallel}  \
+    --load-format {load_format} \
+    --max-num-batched-tokens {max_num_batched_tokens} \
+    --max-num-seq {max_num_seq} \
+    --max-model-len 524288 \
+    --kv-cache-dtype fp8 \
+    --attention-backend TRITON_ATTN \
+    --enable-auto-tool-choice \
+    --tool-call-parser hermes \
+    --distributed-executor-backend ray
