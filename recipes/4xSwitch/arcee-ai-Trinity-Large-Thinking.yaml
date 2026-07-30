@@ -63,7 +63,6 @@ command: |
     --load-format {load_format} \
     --max-num-batched-tokens {max_num_batched_tokens} \
     --max-num-seq {max_num_seq} \
-    --max-model-len 524288 \
     --kv-cache-dtype fp8 \
     --attention-backend TRITON_ATTN \
     --enable-auto-tool-choice \
