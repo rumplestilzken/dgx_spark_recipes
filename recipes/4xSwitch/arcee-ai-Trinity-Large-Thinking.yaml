@@ -48,7 +48,6 @@ defaults:
   # backend: pytorch
 
 env:
-  VLLM_ALLOW_LONG_MAX_MODEL_LEN: 1
   VLLM_TEST_FORCE_FP8_MARLIN: 1
   TRINITY_EMBED_BF16: 1
 
@@ -63,7 +62,6 @@ command: |
     --load-format {load_format} \
     --max-num-batched-tokens {max_num_batched_tokens} \
     --max-num-seq {max_num_seq} \
-    --max-model-len 524288 \
     --kv-cache-dtype fp8 \
     --attention-backend TRITON_ATTN \
     --enable-auto-tool-choice \
