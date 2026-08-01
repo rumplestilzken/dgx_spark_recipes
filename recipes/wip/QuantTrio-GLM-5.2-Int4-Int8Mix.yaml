@@ -1,0 +1,59 @@
+# Recipe: QuantTrio/GLM-5.2-Int4-Int8Mix
+# QuantTrio/GLM-5.2-Int4-Int8Mix model in online NVFP4 quantization
+
+recipe_version: "1"
+name: QuantTrio/GLM-5.2-Int4-Int8Mix 
+description: vLLM serving QuantTrio/GLM-5.2-Int4-Int8Mix
+
+# HuggingFace model to download (optional, for --download-model)
+model: QuantTrio/GLM-5.2-Int4-Int8Mix
+
+# Only cluster is supported
+cluster_only: true
+solo_only: false
+
+# container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
+# Container image to use
+container: vllm-node-tf5
+
+build_args:
+  - --tf5
+
+# Default settings (can be overridden via CLI)
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  # max_model_len: 262144
+  tensor_parallel: 4
+  pipeline_parallel: 1
+  gpu_memory_utilization: 0.85
+  load_format: instanttensor
+  max_seq: 32
+  tool_call_parser: "glm47"
+  reasoning_parser: "glm45"
+  speculative_config_method: "mtp"
+  speculative_config_num_speculative_tokens: 1
+
+# Environment variables
+env:
+  
+# The vLLM serve command template
+command: |
+  vllm serve QuantTrio/GLM-5.2-Int4-Int8Mix \
+  --host 0.0.0.0 \
+    --port 8000 \
+    --load-format {load_format} \
+    --dtype bfloat16 \
+    --quantization compressed-tensors \
+    --kv-cache-dtype fp8 \
+    --tensor-parallel-size {tensor_parallel} \
+    --enable-expert-parallel \
+    --max-model-len auto \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --max-num-seqs {max_seq} \
+    --enable-auto-tool-choice \
+    --tool-call-parser {tool_call_parser} \
+    --reasoning-parser {reasoning_parser} \
+    --speculative-config.method {speculative_config_method} \
+    --speculative-config.num_speculative_tokens {speculative_config_num_speculative_tokens} \
+    --distributed-executor-backend ray

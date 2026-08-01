@@ -1,0 +1,40 @@
+recipe_version: '2'
+
+runtime: sglang
+min_nodes: 4
+model: nvidia/MiniMax-M3-NVFP4
+container: rumplestilzken/sglang-m3-cu13:pr27944
+
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 4
+  attention_backend: triton
+  gpu_memory_utilization: 0.8
+  max_model_len: 200000
+  max_num_batched_tokens: 8192
+  tool_call_parser: minimax-m2
+  kv_cache_dtype: auto
+  reasoning_parser: minimax
+  moe_runner_backend: triton
+  fp4_gemm_backend: cutlass
+  load_format: auto
+  cuda_graph_max_bs: 16
+  cuda_graph_bs: '1 2 4 8 12 16'
+env:
+  TORCH_NCCL_ASYNC_ERROR_HANDLING: '1'
+command: >-
+  sglang serve
+  --model-path {model}
+  --mem-fraction-static {gpu_memory_utilization}
+  --context-length {max_model_len}
+  --tp {tensor_parallel}
+  --chunked-prefill-size {max_num_batched_tokens}
+  --attention-backend triton
+  --moe-runner-backend {moe_runner_backend}
+  --kv-cache-dtype {kv_cache_dtype}
+  --reasoning-parser {reasoning_parser}
+  --tool-call-parser {tool_call_parser}
+  --trust-remote-code
+  --host {host}
+  --port {port}
