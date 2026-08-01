@@ -3,7 +3,7 @@
 
 recipe_version: "1"
 name: Llama-4-Scout-17B-16E-Instruct-NVFP4
-description: vLLM serving RedHatAI/Llama-4-Scout-17B-16E-Instruct-NVFP4 with 1M context (per node)
+description: vLLM serving RedHatAI/Llama-4-Scout-17B-16E-Instruct-NVFP4
 
 # HuggingFace model to download (optional, for --download-model)
 model: RedHatAI/Llama-4-Scout-17B-16E-Instruct-NVFP4
@@ -14,6 +14,7 @@ solo_only: false
 
 # Container image to use
 container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
+# container: vllm-node-tf5
 
 build_args:
   - --tf5
@@ -22,30 +23,28 @@ build_args:
 defaults:
   port: 8000
   host: 0.0.0.0
-  max_model_len: 1000000
-  # max_num_seq: 256
-  # max_num_batched_tokens: 2048
-  tensor_parallel: 3
+  max_model_len: "auto"
+  tensor_parallel: 4
   pipeline_parallel: 1
-  gpu_memory_utilization: 0.80
-  # load_format: instanttensor
+  gpu_memory_utilization: 0.88
   load_format: instanttensor
-  max_num_batched_tokens: 16384
-  max_num_seq: 10
+  max_num_batched_tokens: 2048
+  max_num_seq: 32
 
 # Environment variables
 env:
-  HF_HUB_OFFLINE: 1
-  # VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS: 0
 
 # The vLLM serve command template
 command: |
   vllm serve {model}  \
     --gpu-memory-utilization {gpu_memory_utilization} \
     --max-model-len {max_model_len} \
+    --kv-cache-dtype fp8 \
     --port {port} \
     --host {host} \
-    --enable-prefix-caching \
+    --load-format {load_format} \
     -tp {tensor_parallel}  \
-    -pp {pipeline_parallel} \
+    -ep \
+    --max-num-seq {max_num_seq} \
+    --no-enable-prefix-caching \
     --distributed-executor-backend ray
