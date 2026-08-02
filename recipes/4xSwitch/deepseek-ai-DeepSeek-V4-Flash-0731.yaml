@@ -1,12 +1,8 @@
 model: deepseek-ai/DeepSeek-V4-Flash-0731
 # container: scitrera/dgx-spark-vllm-jasl-ds4:20260609
 # container: ghcr.io/anemll/dspark-vllm-gx10:0.1.1
-<<<<<<< HEAD
 # container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
 container: vllm-node-tf5
-=======
-container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
->>>>>>> 5149b43291e28a2bb5da580f166bf230d7411f5d
 defaults:
   port: 8000
   host: 0.0.0.0
