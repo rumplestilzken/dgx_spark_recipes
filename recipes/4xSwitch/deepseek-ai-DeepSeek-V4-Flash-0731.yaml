@@ -1,0 +1,57 @@
+model: deepseek-ai/DeepSeek-V4-Flash-0731
+# container: scitrera/dgx-spark-vllm-jasl-ds4:20260609
+# container: ghcr.io/anemll/dspark-vllm-gx10:0.1.1
+container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 4
+  gpu_memory_utilization: 0.85
+  max_num_batched_tokens: 6144
+  max_num_seqs: 256
+  tool_call_parser: deepseek_v4
+  pipeline_parallel: 1
+  data_parallel: 1
+  max_cudagraph_capture_size: 24
+  load_format: instanttensor
+  kv_cache_dtype: fp8
+  reasoning_parser: deepseek_v4
+  tokenizer_mode: deepseek_v4
+  compilation_config: '{"cudagraph_mode":"FULL_AND_PIECEWISE","custom_ops":["all"]}'
+env:
+  VLLM_TEST_FORCE_FP8_MARLIN: '1'
+  TILELANG_CLEANUP_TEMP_FILES: '1'
+  VLLM_TRITON_MLA_SPARSE: '1'
+  VLLM_TRITON_MLA_SPARSE_HEAD_BLOCK_SIZE: '4'
+  VLLM_TRITON_MLA_SPARSE_QUERY_CHUNK_SIZE: '512'
+  VLLM_TRITON_MLA_SPARSE_TOPK_CHUNK_SIZE: '512'
+command: |
+  vllm serve {model} \
+    --host {host} \
+    --port {port} \
+    --max-num-seqs {max_num_seqs} \
+    --max-num-batched-tokens {max_num_batched_tokens} \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --enable-auto-tool-choice \
+    --tool-call-parser {tool_call_parser} \
+    --tokenizer-mode {tokenizer_mode} \
+    --reasoning-parser {reasoning_parser} \
+    --kv-cache-dtype {kv_cache_dtype} \
+    --load-format {load_format} \
+    --compilation-config '{compilation_config}' \
+    --enable-prefix-caching \
+    --max-cudagraph-capture-size {max_cudagraph_capture_size} \
+    -tp {tensor_parallel} \
+    -pp {pipeline_parallel}
+runtime: vllm
+min_nodes: 4
+metadata:
+  description: DeepSeek-V4-Flash-0731
+  model_dtype: fp8
+  num_layers: 43
+  num_kv_heads: 1
+  head_dim: 512
+  quantization: fp8
+  quant_bits: 8
+  kv_dtype: fp8
+recipe_version: '2'
