@@ -2,7 +2,7 @@
 # nvidia/Qwen3.5-397B-A17B-NVFP4 model in online NVFP4 quantization
 
 recipe_version: "1"
-name: nvidia/Qwen3.5-397B-A17B-NVFP4
+name: Qwen3.5-397B-A17B-NVFP4-3x
 description: vLLM serving nvidia/Qwen3.5-397B-A17B-NVFP4
 
 # HuggingFace model to download (optional, for --download-model)
