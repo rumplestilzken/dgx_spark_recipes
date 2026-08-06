@@ -19,6 +19,7 @@ defaults:
   reasoning_parser: deepseek_v4
   tokenizer_mode: deepseek_v4
   compilation_config: '{"cudagraph_mode":"FULL_AND_PIECEWISE","custom_ops":["all"]}'
+  num_speculative_tokens: 2
 env:
   VLLM_TEST_FORCE_FP8_MARLIN: '1'
   TILELANG_CLEANUP_TEMP_FILES: '1'
