@@ -21,6 +21,7 @@ solo_only: false
 # container: vllm:latest
 container: vllm-node-tf5
 # conntainer: nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc18
+# container: vllm-node-b12x
 
 build_args:
   - --tf5
@@ -67,4 +68,5 @@ command: |
     --language-model-only \
     --reasoning-parser qwen3 \
     --chat-template unsloth.jinja \
+    --speculative-config '{"method":"mtp","num_speculative_tokens":5}' \
     --distributed-executor-backend ray

@@ -39,11 +39,11 @@ defaults:
   pipeline_parallel: 1
   # expert_parallel: 1
   data_parallel: 1
-  gpu_memory_utilization: 0.80
+  gpu_memory_utilization: 0.85
   # quantization: compressed-tensors
   # kv_cache_dtype: fp8
   load_format: instanttensor
-  max_num_batched_tokens: 4177
+  max_num_batched_tokens: 8192
   max_num_seq: 256
   # speculative: true
   # draft_model: AngelSlim/Qwen3-1.7B_eagle3
@@ -66,4 +66,5 @@ command: |
     --kv-cache-dtype fp8 \
     --reasoning-parser qwen3 \
     --chat-template unsloth.jinja \
+    --speculative-config '{"method":"mtp","num_speculative_tokens":5}' \
     --distributed-executor-backend ray
