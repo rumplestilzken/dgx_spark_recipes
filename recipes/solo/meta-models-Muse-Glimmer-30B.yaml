@@ -1,0 +1,47 @@
+# Recipe: meta-models/Muse-Glimmer-30B
+# meta-models/Muse-Glimmer-30B model in online NVFP4 quantization
+
+recipe_version: "1"
+name: meta-models/Muse-Glimmer-30B
+description: vLLM serving meta-models/Muse-Glimmer-30B
+
+# HuggingFace model to download (optional, for --download-model)
+model: meta-models/Muse-Glimmer-30B
+
+# Only cluster is supported
+cluster_only: false
+solo_only: true
+
+container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
+# Container image to use
+# container: vllm-node-tf5
+
+build_args:
+  - --tf5
+
+mods:
+  - fix-Muse-transformers
+
+# Default settings (can be overridden via CLI)
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  # max_model_len: 262144
+  tensor_parallel: 1
+  pipeline_parallel: 1
+  gpu_memory_utilization: 0.70
+  load_format: instanttensor
+  max_num_batched_tokens: 2048
+
+# Environment variables
+env:
+  
+# The vLLM serve command template
+command: |
+  vllm serve meta-models/Muse-Glimmer-30B \
+    --gpu_memory_utilization {gpu_memory_utilization} \
+    --port {port} \
+    --host {host} \
+    --enable-prefix-caching \
+    -tp {tensor_parallel}  \
+    --load-format {load_format}
