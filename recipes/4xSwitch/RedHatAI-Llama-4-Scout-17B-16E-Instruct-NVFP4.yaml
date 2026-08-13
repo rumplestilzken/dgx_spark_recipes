@@ -45,6 +45,7 @@ command: |
     --load-format {load_format} \
     -tp {tensor_parallel}  \
     -ep \
+    -dcp 2 \
     --attention-backend TRITON_ATTN \
     --max-num-seq {max_num_seq} \
     --no-enable-prefix-caching \
