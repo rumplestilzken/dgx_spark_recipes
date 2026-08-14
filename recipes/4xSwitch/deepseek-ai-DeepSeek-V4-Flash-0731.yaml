@@ -2,12 +2,15 @@ model: deepseek-ai/DeepSeek-V4-Flash-0731
 # container: scitrera/dgx-spark-vllm-jasl-ds4:20260609
 # container: ghcr.io/anemll/dspark-vllm-gx10:0.1.1
 # container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
-container: vllm-node-tf5
+# container: vllm-node-tf5
+# container: vllm-node-b12x
+container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-b12x:latest
+
 defaults:
   port: 8000
   host: 0.0.0.0
   tensor_parallel: 4
-  gpu_memory_utilization: 0.85
+  gpu_memory_utilization: 0.80
   max_num_batched_tokens: 6144
   max_num_seqs: 256
   tool_call_parser: deepseek_v4
@@ -19,7 +22,6 @@ defaults:
   reasoning_parser: deepseek_v4
   tokenizer_mode: deepseek_v4
   compilation_config: '{"cudagraph_mode":"FULL_AND_PIECEWISE","custom_ops":["all"]}'
-  num_speculative_tokens: 2
 env:
   VLLM_TEST_FORCE_FP8_MARLIN: '1'
   TILELANG_CLEANUP_TEMP_FILES: '1'
