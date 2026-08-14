@@ -66,5 +66,4 @@ command: |
     --kv-cache-dtype fp8 \
     --reasoning-parser qwen3 \
     --chat-template unsloth.jinja \
-    --speculative-config '{"method":"mtp","num_speculative_tokens":5}' \
-    --distributed-executor-backend ray
+    --speculative-config '{"method":"mtp","num_speculative_tokens":5}'
