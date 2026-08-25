@@ -62,4 +62,6 @@ command: |
     --max-num-batched-tokens {max_num_batched_tokens} \
     --max-num-seq {max_num_seq} \
     --language-model-only \
+    --tool-call-parser qwen3_coder \
+    --enable-auto-tool-choice \
     --distributed-executor-backend ray
