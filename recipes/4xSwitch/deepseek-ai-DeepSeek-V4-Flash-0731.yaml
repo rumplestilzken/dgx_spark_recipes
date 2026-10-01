@@ -22,6 +22,7 @@ defaults:
   reasoning_parser: deepseek_v4
   tokenizer_mode: deepseek_v4
   compilation_config: '{"cudagraph_mode":"FULL_AND_PIECEWISE","custom_ops":["all"]}'
+  
 env:
   VLLM_TEST_FORCE_FP8_MARLIN: '1'
   TILELANG_CLEANUP_TEMP_FILES: '1'
@@ -29,6 +30,7 @@ env:
   VLLM_TRITON_MLA_SPARSE_HEAD_BLOCK_SIZE: '4'
   VLLM_TRITON_MLA_SPARSE_QUERY_CHUNK_SIZE: '512'
   VLLM_TRITON_MLA_SPARSE_TOPK_CHUNK_SIZE: '512'
+
 command: |
   vllm serve {model} \
     --host {host} \
@@ -46,8 +48,9 @@ command: |
     --enable-prefix-caching \
     --max-cudagraph-capture-size {max_cudagraph_capture_size} \
     -tp {tensor_parallel} \
-    -pp {pipeline_parallel}
-runtime: vllm
+    -pp {pipeline_parallel} \
+    -ep \
+    --enforce-eager
 min_nodes: 4
 metadata:
   description: DeepSeek-V4-Flash-0731
