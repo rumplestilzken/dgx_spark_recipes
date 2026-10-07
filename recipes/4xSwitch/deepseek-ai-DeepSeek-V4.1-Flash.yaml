@@ -1,0 +1,65 @@
+
+#ARCHIVE ONLY - CAN NOT DO 1M CONTEXT
+recipe_version: '2'
+name: DeepSeek-V4.1-Flash
+model: deepseek-ai/DeepSeek-V4.1-Flash
+runtime: vllm-distributed
+container: ghcr.io/oliverjohnwilson/vllm-dsv41-baked:arena-e47aa780b-graphs
+command: |
+  vllm serve {model} \
+      --revision {revision} \
+      --served-model-name {served_model_name} \
+      --host {host} \
+      --port {port} \
+      --trust-remote-code \
+      --tensor-parallel-size {tensor_parallel} \
+      --gpu-memory-utilization {gpu_memory_utilization} \
+      --max-model-len {max_model_len} \
+      --max-num-seqs {max_num_seqs} \
+      --max-num-batched-tokens {max_num_batched_tokens} \
+      --block-size {block_size} \
+      --engram-config '{engram_config}' \
+      --mm-encoder-tp-mode data \
+      --compilation-config '{compilation_config}' \
+      --tool-call-parser deepseek_v41 \
+      --enable-auto-tool-choice \
+      --reasoning-parser deepseek_v41 \
+      -ep \
+      --enforce-eager
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 4
+  gpu_memory_utilization: 0.80
+  max_model_len: 1048576
+  max_num_batched_tokens: 8192
+  max_num_seqs: 10
+  served_model_name: deepseek-ai/DeepSeek-V4.1-Flash
+  block_size: 128
+  revision: dba1be0a40aa45a94ad051997016db3960a90277
+  compilation_config: '{"cudagraph_mode":"FULL_AND_PIECEWISE","cudagraph_capture_sizes":[1,2,3,4,5,6,7,8,9,10]}'
+  engram_config: '{"cpu_offload": false}'
+env:
+  DSV41_ENGRAM_DISK: '1'
+  DSV41_ENGRAM_DISK_THREADS: '32'
+  DSV41_ENGRAM_DISK_CHUNK: '16'
+  VLLM_USE_BREAKABLE_CUDAGRAPH: '1'
+  VLLM_USE_FLASHINFER_SAMPLER: '0'
+  VLLM_PLUGINS: ''
+  FLASHINFER_NVCC_THREADS: '1'
+  VLLM_ENGINE_READY_TIMEOUT_S: '3600'
+  HF_HUB_OFFLINE: '1'
+  TRANSFORMERS_OFFLINE: '1'
+  PYTHONUNBUFFERED: '1'
+  TORCH_CUDA_ARCH_LIST: 12.1a
+  FLASHINFER_CUDA_ARCH_LIST: 12.1a
+min_nodes: 4
+max_nodes: 4
+metadata:
+  description: DeepSeek-V4.1-Flash (deepseek_v41 CED, FP8 weights with FP4 experts) served by vLLM at TP=4 across four DGX Spark (GB10, sm_121a) nodes. CUDA-graph mode FULL_AND_PIECEWISE with capture sizes 1-5, Engram conditional memory served from disk, multimodal input enabled, no speculative decoding. Image built from vllm-project/vllm dsv41-feat @ e47aa780b with FlashInfer 0.7.0rc1 and the Engram-on-disk patch set baked in (DSV41_ENGRAM_DISK=1).
+  maintainer: oliverjohnwilson
+  model_dtype: bfloat16
+  quantization: fp8
+  quant_bits: 8
+model_revision: dba1be0a40aa45a94ad051997016db3960a90277
+runtime_version: 0.28.1rc1.dev392+ge47aa780b
