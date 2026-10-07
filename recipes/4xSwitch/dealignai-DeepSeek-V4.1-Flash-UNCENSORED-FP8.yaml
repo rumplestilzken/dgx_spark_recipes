@@ -14,9 +14,13 @@ metadata:
     (base_model: deepseek-ai/DeepSeek-V4.1-Flash). The launcher, adapters, b12x
     kernels and measurement design are upstream's (knapcio @58f2321, itself a
     downstream of MiaAI-Lab), kept under the upstream licences; the
-    dsv41-sglang-overlay mod is vendored locally (mods/). Repointed copy only -
-    the image/launcher were built and gated against the official checkpoint and
-    this copy has NOT been booted; see README.md.
+    dsv41-sglang-overlay mod is vendored locally (mods/). VERIFIED booted
+    2026-10-06 (job 4403f58a, .133-.136): 1M context served, cold 1M prefill
+    no longer takes the head node down - the earlier NVRM GPU0
+    NV_ERR_NO_MEMORY -> .133 reboot is gone (messages still fire, non-fatal).
+    The FP8 repack loads on the MXFP4-expert path and both Engram tables
+    stream from NVMe (layer 1 packed=True, layer 14 packed=False). Provenance,
+    boot gates and limits live in littlecedar's ds4 AGENTS.md / README.md.
   model_url: https://huggingface.co/dealignai/DeepSeek-V4.1-Flash-UNCENSORED-FP8
   model_params: "552B"
   model_dtype: fp8
@@ -26,8 +30,8 @@ metadata:
 mods:
   # Vendored copy of littlecedar/mods/dsv41-sglang-overlay (registry commit
   # e0633ed), so this recipe no longer depends on the littlecedar registry
-  # being installed. Resolves adjacent to this recipe (mods/<name>); welcome
-  # upstream pins/updates must be re-copied by hand.
+  # being installed. Resolves adjacent to this recipe (mods/<name>); upstream
+  # pins/updates must be re-copied by hand.
   - dsv41-sglang-overlay
 
 executor_config:
