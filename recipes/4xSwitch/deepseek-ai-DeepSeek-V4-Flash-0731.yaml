@@ -1,64 +1,66 @@
+recipe_version: "2"
 model: deepseek-ai/DeepSeek-V4-Flash-0731
-# container: scitrera/dgx-spark-vllm-jasl-ds4:20260609
-# container: ghcr.io/anemll/dspark-vllm-gx10:0.1.1
-# container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
-# container: vllm-node-tf5
-# container: vllm-node-b12x
-container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-b12x:latest
+runtime: sglang
+container: littlecedar/dgx-spark-dsv41:canary-roce@sha256:4e5002ab58b5cca670e2624c6a0d0799642914f04487ea130c71e7f525fa9c05
+min_nodes: 4
+
+metadata:
+  description: >-
+    deepseek-ai/DeepSeek-V4-Flash-0731 on 4x DGX Spark (GB10), SGLang, TP=4
+    EP=1, DSpark k=5, 1M context, RoCEnante RDMA transport. Scratch copy of
+    littlecedar's ds4 "knapcio" lane
+    (recipes/ds4/deepseek-v4.1-flash-knapcio-tp4-1m-sglang.yaml) with the model
+    repointed to dealignai's abliterated/uncensored FP8 repack
+    (base_model: deepseek-ai/DeepSeek-V4.1-Flash). The launcher, adapters, b12x
+    kernels and measurement design are upstream's (knapcio @58f2321, itself a
+    downstream of MiaAI-Lab), kept under the upstream licences; the
+    dsv41-sglang-overlay mod is vendored locally (mods/). VERIFIED booted
+    2026-10-06 (job 4403f58a, .133-.136): 1M context served, cold 1M prefill
+    no longer takes the head node down - the earlier NVRM GPU0
+    NV_ERR_NO_MEMORY -> .133 reboot is gone (messages still fire, non-fatal).
+    The FP8 repack loads on the MXFP4-expert path and both Engram tables
+    stream from NVMe (layer 1 packed=True, layer 14 packed=False). Provenance,
+    boot gates and limits live in littlecedar's ds4 AGENTS.md / README.md.
+  model_url: https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731
+  model_params: "552B"
+  model_dtype: fp8
+  kv_dtype: fp8
+  tags: large-context
+
+mods:
+  # Vendored copy of littlecedar/mods/dsv41-sglang-overlay (registry commit
+  # e0633ed), so this recipe no longer depends on the littlecedar registry
+  # being installed. Resolves adjacent to this recipe (mods/<name>); upstream
+  # pins/updates must be re-copied by hand.
+  - dsv41-sglang-overlay
+
+executor_config:
+  entrypoint: ""
+  shm_size: 32gb
 
 defaults:
   port: 8000
   host: 0.0.0.0
   tensor_parallel: 4
-  gpu_memory_utilization: 0.80
-  max_num_batched_tokens: 6144
-  max_num_seqs: 256
-  tool_call_parser: deepseek_v4
-  pipeline_parallel: 1
-  data_parallel: 1
-  max_cudagraph_capture_size: 24
-  load_format: instanttensor
-  kv_cache_dtype: fp8
-  reasoning_parser: deepseek_v4
-  tokenizer_mode: deepseek_v4
-  compilation_config: '{"cudagraph_mode":"FULL_AND_PIECEWISE","custom_ops":["all"]}'
-  
-env:
-  VLLM_TEST_FORCE_FP8_MARLIN: '1'
-  TILELANG_CLEANUP_TEMP_FILES: '1'
-  VLLM_TRITON_MLA_SPARSE: '1'
-  VLLM_TRITON_MLA_SPARSE_HEAD_BLOCK_SIZE: '4'
-  VLLM_TRITON_MLA_SPARSE_QUERY_CHUNK_SIZE: '512'
-  VLLM_TRITON_MLA_SPARSE_TOPK_CHUNK_SIZE: '512'
+  max_model_len: 1048576
+  # Serve under the *non-abliterated* id so clients/proxies/container labels are
+  # identical to the official lane and nothing downstream has to learn a new
+  # name. The launcher resolves the checkpoint from `{model}` (MODEL_ID), which
+  # stays the abliterated repo id; served-model-name is decoupled from it.
+  served_model_name: deepseek-ai/DeepSeek-V4-Flash-0731
 
-command: |
-  vllm serve {model} \
-    --host {host} \
-    --port {port} \
-    --max-num-seqs {max_num_seqs} \
-    --max-num-batched-tokens {max_num_batched_tokens} \
-    --gpu-memory-utilization {gpu_memory_utilization} \
-    --enable-auto-tool-choice \
-    --tool-call-parser {tool_call_parser} \
-    --tokenizer-mode {tokenizer_mode} \
-    --reasoning-parser {reasoning_parser} \
-    --kv-cache-dtype {kv_cache_dtype} \
-    --load-format {load_format} \
-    --compilation-config '{compilation_config}' \
-    --enable-prefix-caching \
-    --max-cudagraph-capture-size {max_cudagraph_capture_size} \
-    -tp {tensor_parallel} \
-    -pp {pipeline_parallel} \
-    -ep \
-    --enforce-eager
-min_nodes: 4
-metadata:
-  description: DeepSeek-V4-Flash-0731
-  model_dtype: fp8
-  num_layers: 43
-  num_kv_heads: 1
-  head_dim: 512
-  quantization: fp8
-  quant_bits: 8
-  kv_dtype: fp8
-recipe_version: '2'
+command: >
+  python3 /workspace/mods/dsv41-sglang-overlay/launcher.py
+  --boot
+  --model {model}
+  --port {port}
+  --tp {tensor_parallel}
+  --served-model-name {served_model_name}
+  --context-length {max_model_len}
+
+readiness:
+  # inference must stay false: readiness would otherwise drive /chat/completions,
+  # and the engine answers /health (with HTTP 200) from the moment the server binds.
+  inference: false
+  port_timeout_s: 7200
+  health_timeout_s: 3600

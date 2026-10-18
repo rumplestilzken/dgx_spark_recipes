@@ -1,0 +1,69 @@
+recipe_version: "2"
+model: deepseek-ai/DeepSeek-V4.1-Flash-1017-abliterated
+runtime: sglang
+container: littlecedar/dgx-spark-dsv41:canary-roce@sha256:4e5002ab58b5cca670e2624c6a0d0799642914f04487ea130c71e7f525fa9c05
+min_nodes: 4
+
+metadata:
+  description: >-
+    DeepSeek-V4.1-Flash-1017 on 4x DGX Spark (GB10), SGLang, native MXFP4/F8
+    checkpoint with the Engram on NVMe, TP=4 EP=1, DSpark k=5, 1M context,
+    RoCEnante RDMA transport. Line-for-line sibling of
+    deepseek-ai-DeepSeek-V4.1-Flash-sglang.yaml (same knapcio lane, same image
+    pin, same mod, same defaults) with `model` repointed to the 2026-10-17
+    refresh of the base checkpoint. The launcher, adapters, b12x kernels and
+    measurement design are upstream's (knapcio @58f2321 / littlecedar's go-live
+    lane, downstream of MiaAI-Lab), kept under the upstream licences.
+    NOT YET BOOTED - the parent lane is the verified one (2026-10-06,
+    .133-.136: 1M context served, cold 1M prefill no longer takes the head node
+    down). Boot this only with the 1017 weights resident in the node HF cache
+    (`refs/main` is what the launcher resolves - no revision flag).
+  model_url: https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017-abliterated
+  model_revision: 1bae0e1088993b9b82de08f59de5be5a34e42170
+  model_params: "552B"
+  model_dtype: mxfp4
+  model_mtp_dtype: mxfp4
+  kv_dtype: fp8
+  tags: official, large-context, refresh-20261017, abliterated
+
+mods:
+  # Vendored from littlecedar/mods/dsv41-sglang-overlay (registry commit
+  # e0633ed); same mod both v4.1f recipes use. Resolves adjacent to this
+  # recipe (mods/<name>).
+  - dsv41-sglang-overlay
+
+executor_config:
+  entrypoint: ""
+  shm_size: 32gb
+
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 4
+  max_model_len: 1048576
+  # Explicit and decoupled from `model`, mirroring
+  # dealignai-DeepSeek-V4.1-Flash-UNCENSORED-FP8.yaml. Two intended uses:
+  #   1. stock 1017  -> served_model_name: deepseek-ai/DeepSeek-V4.1-Flash-1017
+  #   2. an abliterated 1017 repack -> leave `model` on the repack id and set
+  #      served_model_name back to the bare `deepseek-ai/DeepSeek-V4.1-Flash`
+  #      so config/proxies/container labels stay identical to today's lane.
+  served_model_name: deepseek-ai/DeepSeek-V4.1-Flash-1017
+
+command: >
+  python3 /workspace/mods/dsv41-sglang-overlay/launcher.py
+  --boot
+  --model {model}
+  --port {port}
+  --tp {tensor_parallel}
+  --enable-ep-moe
+  --ep
+  --enforce_eager=True
+  --served-model-name {served_model_name}
+  --context-length {max_model_len}
+
+readiness:
+  # inference must stay false: readiness would otherwise drive /chat/completions,
+  # and the engine answers /health (with HTTP 200) from the moment the server binds.
+  inference: false
+  port_timeout_s: 7200
+  health_timeout_s: 3600
