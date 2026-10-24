@@ -1,7 +1,7 @@
 recipe_version: "2"
 model: rumplestilzken/DeepSeek-V4.1-Flash-1017-abliterated
 runtime: sglang
-container: littlecedar/dgx-spark-dsv41:canary-roce@sha256:4e5002ab58b5cca670e2624c6a0d0799642914f04487ea130c71e7f525fa9c05
+container: littlecedar/dgx-spark-dsv41:canary-roce@sha256:acfc331a959b247a1ce356a864d167a7bf2bffd91694d9caa1102e334ff4ee93
 min_nodes: 4
 
 metadata:
@@ -41,6 +41,7 @@ defaults:
   host: 0.0.0.0
   tensor_parallel: 4
   max_model_len: 1048576
+  dspark_block_size: 5
   # Explicit and decoupled from `model`, mirroring
   # dealignai-DeepSeek-V4.1-Flash-UNCENSORED-FP8.yaml. Two intended uses:
   #   1. stock 1017  -> served_model_name: deepseek-ai/DeepSeek-V4.1-Flash-1017
@@ -60,7 +61,12 @@ command: >
   --enforce_eager=True
   --served-model-name {served_model_name}
   --context-length {max_model_len}
-
+  --chunked-prefill-size 1024 
+  --max-total-tokens 2000000 
+  --max-running-requests 8 
+  --cuda-graph-max-bs-decode 8
+env:    
+  DSV41_INDEXER_LOGITS_BUDGET_BYTES: '536870912'
 readiness:
   # inference must stay false: readiness would otherwise drive /chat/completions,
   # and the engine answers /health (with HTTP 200) from the moment the server binds.
