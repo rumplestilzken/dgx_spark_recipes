@@ -1,7 +1,7 @@
 recipe_version: "2"
 model: rumplestilzken/DeepSeek-V4.1-Flash-1017-abliterated
 runtime: sglang
-container: littlecedar/dgx-spark-dsv41:canary-roce@sha256:acfc331a959b247a1ce356a864d167a7bf2bffd91694d9caa1102e334ff4ee93
+container: littlecedar/dgx-spark-dsv41:canary-roce-20261022@sha256:0cbe228a8788ec06472dd2dc5cd31acb117ec5ba5101f2442d32e54d2ae5b8ea
 min_nodes: 4
 
 metadata:
@@ -19,7 +19,7 @@ metadata:
     down). Boot this only with the 1017 weights resident in the node HF cache
     (`refs/main` is what the launcher resolves - no revision flag).
   model_url: https://huggingface.co/rumplestilzken/DeepSeek-V4.1-Flash-1017-abliterated
-  model_revision: 1bae0e1088993b9b82de08f59de5be5a34e42170
+  model_revision: 835db352d2c92a717473c39b2d5ff39a08362519
   model_params: "552B"
   model_dtype: mxfp4
   model_mtp_dtype: mxfp4
@@ -61,12 +61,22 @@ command: >
   --enforce_eager=True
   --served-model-name {served_model_name}
   --context-length {max_model_len}
-  --chunked-prefill-size 1024 
+  --chunked-prefill-size 8192
   --max-total-tokens 2000000 
   --max-running-requests 8 
   --cuda-graph-max-bs-decode 8
 env:    
   DSV41_INDEXER_LOGITS_BUDGET_BYTES: '536870912'
+  # Back-to-back page scans (OCR) stack multi-thousand-token vision prefills on a
+  # unified-memory node; without these caps the launcher process gets killed and
+  # the lane restarts. `--max-prefill-tokens` bounds one admission batch, and
+  # --mm-process-config caps each image at ~1 MP before the vision tower (pixel
+  # limits alone keep the Rust preprocessing path enabled). boot.py splits this
+  # on whitespace, so the JSON stays unquoted and space-free.
+  # Concurrency (6), chunk size (2048) and mem fraction (0.72) are launcher
+  # defaults; a text-only lane can raise them with SPARK_MAX_RUNNING_REQUESTS /
+  # SPARK_CHUNKED_PREFILL_SIZE / SPARK_MEM_FRACTION_STATIC.
+  EXTRA_SGLANG_ARGS: --max-prefill-tokens 8192 --mm-process-config {"image":{"max_pixels":1048576}}
 readiness:
   # inference must stay false: readiness would otherwise drive /chat/completions,
   # and the engine answers /health (with HTTP 200) from the moment the server binds.

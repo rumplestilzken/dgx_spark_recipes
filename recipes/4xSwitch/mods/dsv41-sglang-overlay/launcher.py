@@ -122,9 +122,9 @@ RECIPE_ENV: dict[str, str] = {
     # --- parallelism / serving (boot.py reads these) -----------------------
     "EP_SIZE": "1",            # b12x_next production line; EP>1 dies at decode
     "CONTEXT_LENGTH": "1048576",
-    "MEM_FRACTION_STATIC": "0.80",
-    "MAX_RUNNING_REQUESTS": "16",
-    "CHUNKED_PREFILL_SIZE": "4096",
+    "MEM_FRACTION_STATIC": os.environ.get("SPARK_MEM_FRACTION_STATIC", "0.72"),
+    "MAX_RUNNING_REQUESTS": os.environ.get("SPARK_MAX_RUNNING_REQUESTS", "6"),
+    "CHUNKED_PREFILL_SIZE": os.environ.get("SPARK_CHUNKED_PREFILL_SIZE", "2048"),
     "CUDA_GRAPH_MAX_BS_DECODE": "16",
     "MAX_TOTAL_TOKENS": "4000000",
     "SPEC_ALGO": "DSPARK",
