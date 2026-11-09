@@ -1,0 +1,47 @@
+# Recipe: Kaleto/Anubis-Pro-105B-NVFP4
+# Kaleto/Anubis-Pro-105B-NVFP4  model in online NVFP4 quantization (modelopt, group_size 16)
+# Dense LlamaForCausalLM, 105B, 120 layers, 8 KV heads, native 128K context.
+# ~60 GB NVFP4 -> fits 1 node (TP 1) comfortably, or TP 2 for faster decode on 2 nodes.
+# KV heads=8, so TP 1/2/4 all divide evenly.
+
+recipe_version: "1"
+name: Kaleto/Anubis-Pro-105B-NVFP4
+description: vLLM serving Kaleto/Anubis-Pro-105B-NVFP4 (TheDrummer creative line, 105B dense)
+
+# HuggingFace model to download (optional, for --download-model)
+model: Kaleto/Anubis-Pro-105B-NVFP4
+
+# Runs on any cluster; fits a single node but supports TP 2 too.
+cluster_only: false
+solo_only: true
+
+# Container image to use (same as Anubis-70B / Behemoth-123B creative recipes)
+container: vllm-node-tf5
+
+build_args:
+  - --tf5
+
+# Default settings (can be overridden via CLI)
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  max_model_len: 262144        # native 128K; raise to 262144 if KV headroom allows
+  tensor_parallel: 1           # fits 1 node (~60 GB NVFP4); set 2 for TP2 decode speed
+  pipeline_parallel: 1
+  gpu_memory_utilization: 0.90
+  load_format: instanttensor
+  max_num_batched_tokens: 2048
+
+# Environment variables
+env:
+
+# The vLLM serve command template
+command: |
+  vllm serve Kaleto/Anubis-Pro-105B-NVFP4 \
+    --gpu_memory_utilization {gpu_memory_utilization} \
+    --port {port} \
+    --host {host} \
+    --enable-prefix-caching \
+    --max-model-len {max_model_len} \
+    -tp {tensor_parallel} \
+    --load-format {load_format}

@@ -24,7 +24,7 @@ mods:
 defaults:
   port: 8000
   host: 0.0.0.0
-  # max_model_len: 262144
+  max_model_len: 1010000
   # max_num_seq: 256
   # max_num_batched_tokens: 2048
   tensor_parallel: 1
@@ -51,6 +51,7 @@ command: |
     --gpu-memory-utilization {gpu_memory_utilization} \
     --port {port} \
     --host {host} \
+    --max-model-len {max_model_len} \
     --enable-prefix-caching \
     -tp {tensor_parallel}  \
     --max_num_batched_tokens {max_num_batched_tokens} \
