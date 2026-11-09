@@ -2,3 +2,4 @@ registries:
   - name: rumplestilzken
     description: My recipes for DGX Spark
     recipes: recipes
+    mods_subpath: mods
