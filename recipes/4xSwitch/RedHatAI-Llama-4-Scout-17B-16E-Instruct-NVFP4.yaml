@@ -26,10 +26,11 @@ defaults:
   max_model_len: "auto"
   tensor_parallel: 4
   pipeline_parallel: 1
-  gpu_memory_utilization: 0.88
+  gpu_memory_utilization: 0.90
   load_format: instanttensor
   max_num_batched_tokens: 2048
   max_num_seq: 32
+  kv_cache_dtype: fp8
 
 # Environment variables
 env:
@@ -39,13 +40,12 @@ command: |
   vllm serve {model}  \
     --gpu-memory-utilization {gpu_memory_utilization} \
     --max-model-len {max_model_len} \
-    --kv-cache-dtype fp8 \
+    --kv-cache-dtype {kv_cache_dtype} \
     --port {port} \
     --host {host} \
     --load-format {load_format} \
     -tp {tensor_parallel}  \
     -ep \
-    -dcp 2 \
     --attention-backend TRITON_ATTN \
     --max-num-seq {max_num_seq} \
     --no-enable-prefix-caching \

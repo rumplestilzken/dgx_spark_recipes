@@ -1,0 +1,106 @@
+# Recipe: nvidia/DeepSeek-V4.1-Flash-1017-NVFP4 @ 10M context
+#
+# Sibling of rumplestilzken--DeepSeek-V4.1-Flash-1017-abliterated-10m.yaml, for
+# NVIDIA's ModelOpt NVFP4 release of the same model. Everything not listed here
+# is that file, unchanged: same image pin, same 10M shape, same RoPE override,
+# same DSpark, same RoCEnante/NCCL tuning.
+#
+# WHAT IS DIFFERENT ABOUT THE CHECKPOINT
+#   * experts are ModelOpt NVFP4: E2M1 (same packed layout as the fp8 build's
+#     MXFP4) with a group-16 e4m3 block scale plus per-tensor input_scale and
+#     weight_scale_2. sglang's deepseek_v4 override auto-detects this
+#     (quant_algo MIXED_PRECISION + moe_quant_algo NVFP4 + group_size) and routes
+#     MoE to flashinfer_trtllm_routed; attention, shared experts, vision and MTP
+#     stay at their source precision.
+#   * the two Engram tables are MXFP4 instead of FP8. The compiled row store is
+#     FP8-only at 264 B records, so the mod expands the tables back to FP8 while
+#     packing (bit-exact) and gates the boot on the packed shards existing.
+#   * total 429 GB vs 511 GB, and ~82 GB of that is the Engram tables — on this
+#     box that lands as disk and pack-time bytes, NOT as pool. Resident constant
+#     goes UP by ~4.2 GB/node (the group-16 scale byte), which is why
+#     MEM_FRACTION_STATIC is 0.86 here and 0.84 on the fp8 lane: 0.84 gives ~9.4M
+#     tokens, short of the 10,485,760 prompt.
+#
+# MANDATORY FIRST RUN, per node (see the mod's prepack.sh):
+#     ./prepack.sh <rank>        # rank 0..3 for spark1..spark4
+# It writes ~95 GiB/rank of FP8-expanded rows to
+# ~/.cache/huggingface/engram-packed/nvidia__DeepSeek-V4.1-Flash-1017-NVFP4/.
+# The launcher refuses to boot a rank whose shards are absent.
+#
+# NOT ABLITERATED YET. This recipe points at the stock NVIDIA repo; when the
+# ablation lands on this checkpoint, repoint `model:`/`model_url` and bump
+# `model_revision`. The ablation targets attn.wo_b + ffn.shared_experts.w2, both
+# excluded from NVIDIA's quantizer, so the patch is FP8-in/FP8-out there and the
+# 54-tensor operator from the fp8 lane applies unchanged.
+#
+# Risk, stated plainly: nothing here has been booted. Two unknowns sit in front of
+# a serve: (1) trtllm_routed on a GB10 (sm_121), (2) 10.49M is 10x past the YaRN
+# calibration, as on the fp8 lane. Costs the live lane a restart. The 1M lane
+# remains the verified one.
+recipe_version: "2"
+model: rumplestilzken/DeepSeek-V4.1-Flash-1017-NVFP4
+runtime: sglang
+container: littlecedar/dgx-spark-dsv41:canary-roce@sha256:acfc331a959b247a1ce356a864d167a7bf2bffd91694d9caa1102e334ff4ee93
+min_nodes: 4
+
+metadata:
+  description: >-
+    nvidia/DeepSeek-V4.1-Flash-1017-NVFP4 (hybrid FP8+NVFP4, ModelOpt) at a 10M
+    (10,485,760) turn on 4x DGX Spark. SGLang, MXFP4 Engram expanded to FP8 at
+    pack time and served from NVMe, TP=4 EP=1, DSpark k=5, fp8 KV, YaRN factor
+    160, 10.7M token pool, RoCEnante RDMA. Experimental and unbooted; the 1M fp8
+    lane stays the default.
+  model_url: https://huggingface.co/rumplestilzken/DeepSeek-V4.1-Flash-1017-NVFP4
+  model_revision: 480550d349ede47a048eb65a276c5c01a06256e2
+  model_params: "552B"
+  model_dtype: nvfp4
+  model_mtp_dtype: fp8
+  kv_dtype: fp8
+  # Unchanged from the fp8 lane: the KV quant is fp8 either way
+  # (kv_cache_quant_algo is null in this checkpoint), so bytes_per_full_token is
+  # the same 1670.75 B the engine measures for this MLA latent + DSA layout.
+  kv_vram_per_token: 1.5560071915388107e-06   # 1670.75 B / 1024^3
+  tags: 10M, long-context, experimental, nvfp4, do-not-default
+
+mods:
+  # Fork of dsv41-sglang-overlay-10m: same launcher, plus the MXFP4 Engram patch
+  # (packer + reader), the packed-shard gate, and MEM_FRACTION_STATIC 0.86.
+  - dsv41-sglang-overlay-10m-nvfp4
+
+executor_config:
+  entrypoint: ""
+  shm_size: 32gb
+  cap_add:
+    - SYS_PTRACE
+
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 4
+  max_model_len: 10485760
+  gpu_memory_utilization: 0.86
+  served_model_name: rumplestilzken/DeepSeek-V4.1-Flash-1017
+
+command: >
+  python3 /workspace/mods/dsv41-sglang-overlay-10m-nvfp4/launcher.py
+  --boot
+  --model {model}
+  --port {port}
+  --tp {tensor_parallel}
+  --enable-ep-moe
+  --ep
+  --enforce_eager=True
+  --served-model-name {served_model_name}
+  --context-length {max_model_len}
+
+env:
+  DSV41_INDEXER_LOGITS_BUDGET_BYTES: '536870912'
+  # shared pack key: the tables are not ablated, one pack serves both recipes
+  DSV41_ENGRAM_PACK_KEY: rumplestilzken__DeepSeek-V4.1-Flash-1017-NVFP4
+  # boot.py whitespace-splits this -> the JSON must carry NO spaces.
+  EXTRA_SGLANG_ARGS: '--json-model-override-args {"rope_scaling":{"rope_type":"yarn","factor":160.0,"beta_fast":32,"beta_slow":1,"original_max_position_embeddings":65536}}'
+
+readiness:
+  inference: false
+  port_timeout_s: 7200
+  health_timeout_s: 3600

@@ -70,4 +70,5 @@ command: |
     --enable-auto-tool-choice \
     --tool-call-parser glm47 \
     --reasoning-parser glm45 \
+    -ep \
     --distributed-executor-backend ray

@@ -1,7 +1,7 @@
 # Recipe: Trinity-Large-Thinking-NVFP4
 # arcee-ai/Trinity-Large-Thinking-NVFP4 model in online NVFP4 quantization
 
-recipe_version: "1"
+recipe_version: "2"
 name: arcee-ai/Trinity-Large-Thinking-NVFP4
 description: vLLM serving arcee-ai/Trinity-Large-Thinking-NVFP4
 
@@ -19,7 +19,7 @@ solo_only: false
 # Container image to use
 # container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
 # container: vllm:latest
-container: vllm-node-tf5
+container: docker.io/vllm-node-tf5
 # conntainer: nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc18
 
 build_args:

@@ -72,4 +72,5 @@ command: |
     --reasoning-parser qwen3 \
     --enable-auto-tool-choice \
     --tool-call-parser qwen3_coder \
-    --no-enable-flashinfer-autotune
+    --no-enable-flashinfer-autotune \
+    --speculative-config '{"method":"mtp","num_speculative_tokens":5}'

@@ -1,0 +1,44 @@
+recipe_version: '2'
+name: Ornith-1.5-397B-uncensored-NVFP4
+model: ressl/Ornith-1.5-397B-uncensored-NVFP4
+runtime: vllm
+container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026082601
+command: |
+  vllm serve {model} --host {host} --port {port} --gpu-memory-utilization {gpu_memory_utilization} --max-model-len {max_model_len} --max-num-batched-tokens {max_num_batched_tokens} --max-num-seqs {max_num_seqs} --performance-mode {performance_mode} --kv-cache-dtype {kv_cache_dtype} --attention-backend {attention_backend} --moe-backend {moe_backend} --linear-backend {linear_backend} --load-format {load_format} --enable-prefix-caching --enable-auto-tool-choice --tool-call-parser qwen3_xml --reasoning-parser qwen3 --trust-remote-code --async-scheduling -tp {tensor_parallel} -pp {pipeline_parallel}
+mods:
+  - mods/drop-caches
+  - mods/instanttensor-hybrid-draft-loader
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 4
+  gpu_memory_utilization: 0.8
+  max_model_len: 262144
+  max_num_batched_tokens: 16384
+  max_num_seqs: 10
+  attention_backend: flashinfer
+  pipeline_parallel: 1
+  performance_mode: interactivity
+  kv_cache_dtype: fp8
+  load_format: instanttensor
+  moe_backend: marlin
+  linear_backend: flashinfer_cutlass
+  mm_encoder_tp_mode: data
+env:
+  VLLM_MARLIN_USE_ATOMIC_ADD: '1'
+  OMP_NUM_THREADS: '1'
+min_nodes: 4
+metadata:
+  description: Ornith-1.5-397B-uncensored-NVFP4
+  model_url: https://huggingface.co/littlecedar/Ornith-1.5-397B-NVFP4
+  maintainer: Little Cedar Group <sparkrun@littlecedar.net>
+  model_params: 397B
+  model_dtype: nvfp4
+  kv_dtype: fp8
+  num_layers: 60
+  num_kv_heads: 2
+  head_dim: 256
+  quantization: nvfp4
+  quant_bits: 4
+  model_type: qwen3_5_moe
+builder: eugr
