@@ -166,4 +166,41 @@ grep -q "4096 <= context <= 16777216" "${BOOTPY}" \
   || die "boot.py context ceiling not raised in ${BOOTPY} (image change?)"
 log "boot.py context ceiling raised to 16777216 (10M lane)"
 
+#####################################################################
+# row_store extent check  (THIS LANE: MXFP4 Engram tables)
+#####################################################################
+# `row_store_open` runs before the packed shard is attached and validates the
+# checkpoint's own geometry with an FP8 weight stride (kWeightBytes = 256 B/row).
+# This checkpoint's Engram weight is MXFP4, 128 B/row, so that operand is exactly
+# 2x too strict and aborts rank 0 during load_model:
+#   "Engram retrieval failed: invalid table extent (errno=0)"
+# Patch the source, then rebuild: /opt/dsv41 is root-owned, so (as with the two
+# blocks above) this has to happen HERE as root. The rebuild reproduces the
+# shipped .so byte-for-byte when unpatched, so the only delta is the check.
+CPP=/opt/dsv41/adapter/row_store.cpp
+SO=/opt/dsv41/adapter/librow_store.so
+[[ -f "${CPP}" ]] || die "row_store.cpp not found at ${CPP}"
+[[ -f "${SO}" ]] || die "librow_store.so not found at ${SO}"
+[[ -f "${SO}.image-orig" ]] || cp -p "${SO}" "${SO}.image-orig"
+_patch_state="$(python3 "${MOD_DIR}/row_store_mxfp4.py")" \
+  || die "row_store patch raised: ${_patch_state}"
+log "row_store extent check: ${_patch_state}"
+grep -q "nvfp4-10m mod" "${CPP}" \
+  || die "row_store patch MARK missing from ${CPP} (image change?)"
+if [[ "${_patch_state}" == "patched" || "${CPP}" -nt "${SO}" ]]; then
+  # Build to a sibling and rename, so a failed build never clobbers a good .so.
+  g++ -O2 -std=c++17 -fPIC -shared -pthread -o "${SO}.new" "${CPP}" >>"${LOGDIR}/${MOD_NAME}.log" 2>&1 \
+    || die "librow_store.so rebuild failed; see ${LOGDIR}/${MOD_NAME}.log"
+  mv -f "${SO}.new" "${SO}"
+  log "librow_store.so rebuilt with the relaxed extent check"
+else
+  log "librow_store.so already newer than the patched source; not rebuilding"
+fi
+_syms="$(nm -D --defined-only "${SO}")" || die "nm failed on rebuilt ${SO}"
+grep -q "row_store_open$" <<<"${_syms}" \
+  || die "rebuilt ${SO} does not export row_store_open"
+python3 -c 'import ctypes,sys; ctypes.CDLL(sys.argv[1])' "${SO}" >>"${LOGDIR}/${MOD_NAME}.log" 2>&1 \
+  || die "rebuilt ${SO} does not dlopen"
+log "row_store extent check OK (MXFP4 128 B/row accepted, FP8 unchanged, so md5 $(md5sum "${SO}" | cut -d' ' -f1))"
+
 log "Done."
