@@ -35,11 +35,16 @@ HFC="${HOME}/.cache/huggingface"
 REPO="${HFC}/hub/models--${SRC_SLUG}"
 [[ -d "${REPO}" ]] || REPO="${HFC}/hub/models--${MODEL_ID//\//__}"
 OUT_HOST="${HFC}/engram-packed/${SLUG}"
+# The snapshot is symlinks into ../../blobs, resolved by the RUNNING PROCESS's
+# root. Bind the snapshot alone and ../../ lands on the image's /, where no blobs
+# exist -> every link dangles. So: bind the CACHE ROOT at /models and address the
+# snapshot by its in-cache path; then ../../blobs resolves to /models/blobs.
 MOD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 [[ -d "${REPO}" ]] || { echo "no checkpoint at ${REPO}" >&2; exit 1; }
 SNAP="${REPO}/snapshots/$(cat "${REPO}/refs/main")"
 [[ -f "${SNAP}/model.safetensors.index.json" ]] || { echo "snapshot incomplete: ${SNAP}" >&2; exit 1; }
+SNAP_IN_CACHE="${SRC_SLUG_NAME:-$(basename "${REPO}")}/snapshots/$(basename "${SNAP}")"
 
 # space check (the packer has its own, but fail before creating anything)
 # 2 layers x ~47 GiB per rank = ~95 GiB; leave a margin.
@@ -52,9 +57,9 @@ echo "rank ${RANK}/${TP}: packing -> ${OUT_HOST}"
 
 docker run --rm \
   --entrypoint bash \
-  -e NODE_RANK="${RANK}" -e TP_SIZE="${TP}" -e DSV41_SOURCE=/models \
+  -e NODE_RANK="${RANK}" -e TP_SIZE="${TP}" -e DSV41_MODEL=/models/${SNAP_IN_CACHE} \
+  -v "${HFC}/hub:/models:ro" \
   -v "${HFC}:/cache/huggingface" \
-  -v "${SNAP}:/models:ro" \
   -v "${MOD_DIR}:/workspace/mods/dsv41-sglang-overlay-10m-nvfp4:ro" \
   "${IMAGE}" -lc '
     set -euo pipefail
@@ -64,7 +69,7 @@ docker run --rm \
     grep -q "nvfp4-10m mod" scripts/pack_engram.py
     grep -q "MXFP4" adapter/engram_backend.py
     python3 scripts/pack_engram.py \
-      --model /models --out "/cache/huggingface/engram-packed/'"${SLUG}"'" \
+      --model "${DSV41_MODEL}" --out "/cache/huggingface/engram-packed/'"${SLUG}"'" \
       --rank '"${RANK}"' --tp '"${TP}"'
   '
 

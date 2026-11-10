@@ -39,7 +39,7 @@
 # `model_revision`: the repack repo's own commit (main). The base commit the
 # tensors come from is af97f27f4d38 — pin here once the repo commit is minted.
 recipe_version: "2"
-model: rumplestilzken/DeepSeek-V4.1-1017-abliterated-NVFP4-10M
+model: rumplestilzken/DeepSeek-V4.1-Flash-1017-abliterated-NVFP4-10M
 runtime: sglang
 container: littlecedar/dgx-spark-dsv41:canary-roce@sha256:acfc331a959b247a1ce356a864d167a7bf2bffd91694d9caa1102e334ff4ee93
 min_nodes: 4
@@ -51,7 +51,7 @@ metadata:
     expanded to FP8 on NVMe), SGLang TP=4 EP=1, DSpark k=5, fp8 KV, YaRN factor
     160 carried in config.json, 10.7M token pool, RoCEnante RDMA. Experimental,
     unbooted; the 1M abliterated lane stays the default.
-  model_url: https://huggingface.co/rumplestilzken/DeepSeek-V4.1-1017-abliterated-NVFP4-10M
+  model_url: https://huggingface.co/rumplestilzken/DeepSeek-V4.1-Flash1017-abliterated-NVFP4-10M
   model_revision: main
   model_params: "552B"
   model_dtype: nvfp4
