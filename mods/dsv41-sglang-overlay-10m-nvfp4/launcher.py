@@ -16,9 +16,12 @@ Deltas against the 10m fork, all of them, so a diff stays readable:
     the packed record stays 264 B.
   * `gate_packed()`: with MXFP4 tables a missing packed shard means wrong rows,
     not slow rows, so it is a hard failure with the fix in the message.
-  * DSV41_MOE_B12X_NEXT defaults to 0: the deepseek_v4 override auto-detects this
-    checkpoint and routes MoE to flashinfer_trtllm_routed, which does not use the
-    mxfp4 fused pool b12x hooks. Flip to 1 once that is confirmed harmless.
+  * DSV41_MOE_B12X_NEXT=1: the MTP draft's MXFP4 routed experts (EP1 TP4, N=576)
+    need the overlay's b12x_next path -- SM120 cutlass MXFP4 rejects N=576 (%128).
+    It hooks only the MXFP4 cutlass method + the mxfp4 fused pool, neither of which
+    the NVFP4 target (cutlass pool) touches, so it is inert for the target. Set env
+    DSV41_MOE_B12X_NEXT=0 to disable (also drops DSpark to target-only if paired
+    with SPEC_ALGO=off).
 Everything else -- the boot.py context-ceiling patch, the 10M env, the RoCEnante
 and NCCL tuning, the Engram NVMe placement -- is the 10m launcher unchanged.
 
@@ -182,12 +185,19 @@ RECIPE_ENV: dict[str, str] = {
     # one on sm_121 -- flashinfer_trtllm_routed is NVIDIA-validated on GB300, not
     # GB10. Override via the env var of the same name to try trtllm once confirmed.
     "MOE_RUNNER_BACKEND": os.getenv("MOE_RUNNER_BACKEND", "flashinfer_cutlass"),
-    # b12x_next OFF for this lane: it only hooks FusedOpPool[("none",
-    # "flashinfer_mxfp4")] (moe_b12x_next.py:83), which a cutlass runner never
-    # creates. The FP8 parent overlay also set this key to "1" later in this dict;
-    # that inherited DUPLICATE (last-wins) silently forced b12x_next on + the
-    # mxfp4 runner, and is removed so this "0" governs. Flip via env to experiment.
-    "DSV41_MOE_B12X_NEXT": os.getenv("DSV41_MOE_B12X_NEXT", "0"),
+    # b12x_next ON for the draft: the MTP draft's MXFP4 routed experts are EP1 TP4
+    # with intermediate_per_partition=576, which FlashInfer's SM120 cutlass MXFP4
+    # path rejects (create_weights needs %128; 576=4.5x128). b12x_next is the
+    # overlay's purpose-built fix for exactly this geometry -- it lifts that check
+    # (needs only n%64; 576=9x64) and supplies a measured N=576 b12x kernel (its
+    # 2026-09-25 plan table explicitly covers the draft's top-3). It hooks ONLY
+    # Mxfp4FlashinferCutlassMoEMethod (install_method:773) and the ("none",
+    # "flashinfer_mxfp4") pool (install_runner:925); the NVFP4 target uses neither
+    # (ModelOptNvFp4 on the flashinfer_cutlass pool), so it is inert for the target
+    # -- the "flip to 1 once confirmed harmless" the docstring asked for. Requires
+    # the draft on the flashinfer_mxfp4 runner (EXTRA_SGLANG_ARGS below) AND the
+    # cutlass method (run.sh mtp_mxfp4_sm121 patch). Set env "0" to disable.
+    "DSV41_MOE_B12X_NEXT": os.getenv("DSV41_MOE_B12X_NEXT", "1"),
     # Draft (DSpark) MoE. The MTP draft experts are MXFP4 (not the target's NVFP4);
     # their MoE method is chosen in modelopt_quant.py's MTP fallback, which the
     # run.sh `mtp_mxfp4_sm121` patch routes to the cutlass method on sm121 (the
