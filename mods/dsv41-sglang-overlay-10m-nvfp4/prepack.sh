@@ -30,9 +30,10 @@ IMAGE=littlecedar/dgx-spark-dsv41:canary-roce-20261022
 # the ablation never touches the Engram tensors, so the tables are identical.
 MODEL_ID="${PACK_SOURCE_ID:-rumplestilzken/DeepSeek-V4.1-1017-abliterated-NVFP4}"
 SLUG="${PACK_KEY:-rumplestilzken__DeepSeek-V4.1-Flash-1017-NVFP4}"
-SRC_SLUG="${MODEL_ID//\//__}"
+SRC_SLUG="${MODEL_ID//\//--}"
 HFC="${HOME}/.cache/huggingface"
 REPO="${HFC}/hub/models--${SRC_SLUG}"
+[[ -d "${REPO}" ]] || REPO="${HFC}/hub/models--${MODEL_ID//\//__}"
 OUT_HOST="${HFC}/engram-packed/${SLUG}"
 MOD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
