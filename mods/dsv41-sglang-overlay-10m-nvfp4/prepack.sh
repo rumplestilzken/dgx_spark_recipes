@@ -34,7 +34,7 @@ SRC_SLUG="${MODEL_ID//\//--}"
 HFC="${HOME}/.cache/huggingface"
 REPO="${HFC}/hub/models--${SRC_SLUG}"
 [[ -d "${REPO}" ]] || REPO="${HFC}/hub/models--${MODEL_ID//\//__}"
-OUT_HOST="${HFC}/engram-packed/${SLUG}"
+OUT_HOST="${HFC}/hub/engram-packed/${SLUG}"
 # The snapshot is symlinks into ../../blobs, resolved by the RUNNING PROCESS's
 # root. Bind the snapshot alone and ../../ lands on the image's /, where no blobs
 # exist -> every link dangles. So: bind the CACHE ROOT at /models and address the
@@ -69,7 +69,7 @@ docker run --rm \
     grep -q "nvfp4-10m mod" scripts/pack_engram.py
     grep -q "MXFP4" adapter/engram_backend.py
     python3 scripts/pack_engram.py \
-      --model "${DSV41_MODEL}" --out "/cache/huggingface/engram-packed/'"${SLUG}"'" \
+      --model "${DSV41_MODEL}" --out "/cache/huggingface/hub/engram-packed/'"${SLUG}"'" \
       --rank '"${RANK}"' --tp '"${TP}"'
   '
 
