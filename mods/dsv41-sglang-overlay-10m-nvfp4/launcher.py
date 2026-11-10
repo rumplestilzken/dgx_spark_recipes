@@ -188,18 +188,17 @@ RECIPE_ENV: dict[str, str] = {
     # that inherited DUPLICATE (last-wins) silently forced b12x_next on + the
     # mxfp4 runner, and is removed so this "0" governs. Flip via env to experiment.
     "DSV41_MOE_B12X_NEXT": os.getenv("DSV41_MOE_B12X_NEXT", "0"),
-    # Draft (DSpark) MoE runner is a SEPARATE knob: speculative_moe_runner_backend
-    # (sglang arg_groups/fields/spec.py) defaults to None -> flashinfer_mxfp4, and
-    # does NOT inherit --moe-runner-backend above. boot.py emits no --speculative-*
-    # MoE flag, so pin it via EXTRA_SGLANG_ARGS (boot.py:465 appends to the argv).
-    # The draft experts are the same NVFP4 as the target (checkpoint layer 39:
-    # U8 + F8_E4M3 group-16 scale), but flashinfer_mxfp4 routes fp4 block-scale MoE
-    # through flashinfer's trtllm GEMM, whose cubins cover sm100/103/107 only --
-    # NOT sm121 (GB10). cutlass is the sm121 path the target already uses. Replace
-    # the whole arg string via the EXTRA_SGLANG_ARGS env (it is otherwise unused
-    # here -- the 10M rope factor rides in config.json, not this).
+    # Draft (DSpark) MoE. The MTP draft experts are MXFP4 (not the target's NVFP4);
+    # their MoE method is chosen in modelopt_quant.py's MTP fallback, which the
+    # run.sh `mtp_mxfp4_sm121` patch routes to the cutlass method on sm121 (the
+    # stock line hard-routes trtllm, which has no GB10 cubin). Pair that with the
+    # flashinfer_mxfp4 RUNNER -- the combo sglang itself uses for the cutlass MXFP4
+    # method on sm120 (fp8.py:449-456). boot.py emits no --speculative-* MoE flag,
+    # so set it through EXTRA_SGLANG_ARGS (boot.py:465 appends to the argv).
+    # Override the whole arg string via the EXTRA_SGLANG_ARGS env; it is otherwise
+    # unused here (the 10M rope factor rides in config.json, not this).
     "EXTRA_SGLANG_ARGS": os.getenv(
-        "EXTRA_SGLANG_ARGS", "--speculative-moe-runner-backend flashinfer_cutlass"),
+        "EXTRA_SGLANG_ARGS", "--speculative-moe-runner-backend flashinfer_mxfp4"),
     # 10M lane: model_config._derive_context_length RAISES when context_length >
     # max_position_embeddings (1,048,576 in config.json). This makes it warn and
     # accept instead - verified at configs/model_config.py:1039-1060.
@@ -214,21 +213,16 @@ RECIPE_ENV: dict[str, str] = {
     # so this buys long-context concurrency + radix retention, not a per-stream claim.
     # READ `DSV4 memory calculation` (full_token) after any weights/TP/NCCL change.
     "MAX_TOTAL_TOKENS": os.getenv("DSV41_MAX_TOTAL_TOKENS", "10700000"),
-    # DSpark speculative decode is OFF for the first boot on GB10 (sm121). The MTP
-    # draft experts are MXFP4 -- the checkpoint ignores `mtp.*` from the NVFP4
-    # group (I8 weight + F8_E8M0 group-32 scale, vs the target's U8 + F8_E4M3
-    # group-16) -- and sglang's MXFP4 MoE dispatch (fp8.py:449-462) only routes to
-    # the sm121-capable cutlass/marlin methods when get_platform().is_sm120. GB10
-    # reports sm121, which is_sm120 does NOT match (and marlin needs sm90/sm120
-    # too), so it falls to Mxfp4FlashinferTrtllmMoEMethod, whose trtllm-gen cubins
-    # ship for sm100/103/107 only -> "no kernels runnable on sm121" during draft
-    # CUDA-graph capture. The target is NVFP4 and serves fine on cutlass; the draft
-    # is the only MXFP4 consumer, so dropping it clears the wall without touching
-    # the served model. Restoring DSpark needs the MXFP4-on-sm121 path solved
-    # (teach fp8.py's is_sm120 gate about sm121 AND confirm the cutlass MXFP4
-    # kernel runs there, or route the draft's mxfp4 pool through b12x_next). Flip
-    # back with SPEC_ALGO=DSPARK once that holds.
-    "SPEC_ALGO": os.getenv("SPEC_ALGO", "off"),
+    # DSpark speculative decode: ON. The MTP draft experts are MXFP4 (the
+    # checkpoint ignores `mtp.*` from the NVFP4 group: I8 weight + F8_E8M0
+    # group-32 scale). The stock engine hard-routes them to the trtllm MXFP4 GEMM
+    # (modelopt_quant.py's MTP fallback), which has no sm121/GB10 cubin and killed
+    # the draft in CUDA-graph capture on boots 4-5. The run.sh `mtp_mxfp4_sm121`
+    # patch fixes that one branch to the cutlass method on sm121 (JIT for the live
+    # arch, like the NVFP4 target). First boot with the draft back on; if the
+    # cutlass MXFP4 path trips on sm121 too, fall back with SPEC_ALGO=off (serves
+    # target-only, the proven config).
+    "SPEC_ALGO": os.getenv("SPEC_ALGO", "DSPARK"),
     "DSPARK_BLOCK_SIZE": "5",
     # --- overlay adapters (the upstream production line) -------------------
     "DSV41_INDEXER_CHUNKED": "1",

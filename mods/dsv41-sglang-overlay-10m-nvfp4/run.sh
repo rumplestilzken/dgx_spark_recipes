@@ -203,4 +203,26 @@ python3 -c 'import ctypes,sys; ctypes.CDLL(sys.argv[1])' "${SO}" >>"${LOGDIR}/${
   || die "rebuilt ${SO} does not dlopen"
 log "row_store extent check OK (MXFP4 128 B/row accepted, FP8 unchanged, so md5 $(md5sum "${SO}" | cut -d' ' -f1))"
 
+#####################################################################
+# MTP (DSpark draft) MXFP4 MoE on sm121  (THIS LANE)
+#####################################################################
+# modelopt_quant.py's MTP fallback hard-routes the draft's MXFP4 experts to the
+# trtllm GEMM, which ships no sm121 (GB10) cubin -> the draft dies in CUDA-graph
+# capture. Patch that one branch to mirror fp8.py: cutlass on sm90/sm120
+# (is_sm120_supported includes sm121/GB10), trtllm only on sm100. Pure-Python
+# source edit, no rebuild. Idempotent. The target model is NVFP4 and takes the
+# non-excluded ModelOptNvFp4 path, so it is untouched; this branch is only ever
+# reached when DSpark is enabled (SPEC_ALGO!=off).
+MOPT=/sgl-workspace/sglang/python/sglang/srt/layers/quantization/modelopt_quant.py
+[[ -f "${MOPT}" ]] || die "modelopt_quant.py not found at ${MOPT}"
+[[ -f "${MOPT}.image-orig" ]] || cp -p "${MOPT}" "${MOPT}.image-orig"
+_mtp_state="$(python3 "${MOD_DIR}/mtp_mxfp4_sm121.py")" \
+  || die "mtp mxfp4 sm121 patch raised: ${_mtp_state}"
+log "mtp mxfp4 sm121 patch: ${_mtp_state}"
+grep -q "nvfp4-10m mod" "${MOPT}" \
+  || die "mtp mxfp4 sm121 patch MARK missing from ${MOPT} (image change?)"
+python3 -c 'import ast,sys; ast.parse(open(sys.argv[1]).read())' "${MOPT}" >>"${LOGDIR}/${MOD_NAME}.log" 2>&1 \
+  || die "patched ${MOPT} does not parse"
+log "mtp mxfp4 sm121 patch OK (MTP fallback -> cutlass on sm90/sm120/sm121)"
+
 log "Done."
