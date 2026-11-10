@@ -149,4 +149,21 @@ grep -q "nvfp4-10m mod" /opt/dsv41/adapter/engram_backend.py \
   || die "engram backend patch did not land in /opt/dsv41/adapter/engram_backend.py"
 log "engram mxfp4 patch OK (packer + backend carry the MARK)"
 
+#####################################################################
+# boot.py context ceiling  (THIS LANE: 10M)
+#####################################################################
+# boot.py ships `assert 4096 <= context <= 1048576`; the 10M lane needs
+# 10,485,760 and there is no env/argv path around an assert. launcher.py patches
+# this too, but as the non-root serve user sed cannot write its temp file in
+# root-owned /opt/dsv41 -> raise the ceiling HERE, as root. Idempotent; 16777216
+# (16M) is the exact value launcher.py checks for, so its own pass then no-ops.
+BOOTPY="/opt/dsv41/boot.py"
+[[ -f "${BOOTPY}" ]] || die "boot.py not found at ${BOOTPY}"
+if ! grep -q "<= 16777216" "${BOOTPY}"; then
+  sed -i 's/4096 <= context <= 1048576/4096 <= context <= 16777216/g; s/the model limit 1048576/the 10M lane ceiling 16777216/g' "${BOOTPY}"
+fi
+grep -q "4096 <= context <= 16777216" "${BOOTPY}" \
+  || die "boot.py context ceiling not raised in ${BOOTPY} (image change?)"
+log "boot.py context ceiling raised to 16777216 (10M lane)"
+
 log "Done."
