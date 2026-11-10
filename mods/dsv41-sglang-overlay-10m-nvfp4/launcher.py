@@ -137,7 +137,10 @@ RECIPE_ENV: dict[str, str] = {
     "READY_TIMEOUT_S": "3600",
     "OFFLOAD_MODE": "nvme",    # Engram on NVMe (host = the GPU's unified memory)
     # --- Engram reader (adapter/engram_backend.py, row_store.cpp) ----------
-    "DSV41_CACHE_GIB": "2",
+    # 4 GiB, not 2: the 10-23 1M crash was this cache at 2 GiB (lookups=811k,
+    # 68.8% hit, then index-structure OOM). 4 GiB was the fix that carried four
+    # consecutive 1M turns. 10M multiplies lookups ~10x, so 4 is the floor here.
+    "DSV41_CACHE_GIB": "4",
     "DSV41_CACHE_WAYS": "16",
     "DSV41_IO_THREADS": "96",
     "DSV41_RESIDENT_SCALES": "0",
