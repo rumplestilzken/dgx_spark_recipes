@@ -214,7 +214,21 @@ RECIPE_ENV: dict[str, str] = {
     # so this buys long-context concurrency + radix retention, not a per-stream claim.
     # READ `DSV4 memory calculation` (full_token) after any weights/TP/NCCL change.
     "MAX_TOTAL_TOKENS": os.getenv("DSV41_MAX_TOTAL_TOKENS", "10700000"),
-    "SPEC_ALGO": "DSPARK",
+    # DSpark speculative decode is OFF for the first boot on GB10 (sm121). The MTP
+    # draft experts are MXFP4 -- the checkpoint ignores `mtp.*` from the NVFP4
+    # group (I8 weight + F8_E8M0 group-32 scale, vs the target's U8 + F8_E4M3
+    # group-16) -- and sglang's MXFP4 MoE dispatch (fp8.py:449-462) only routes to
+    # the sm121-capable cutlass/marlin methods when get_platform().is_sm120. GB10
+    # reports sm121, which is_sm120 does NOT match (and marlin needs sm90/sm120
+    # too), so it falls to Mxfp4FlashinferTrtllmMoEMethod, whose trtllm-gen cubins
+    # ship for sm100/103/107 only -> "no kernels runnable on sm121" during draft
+    # CUDA-graph capture. The target is NVFP4 and serves fine on cutlass; the draft
+    # is the only MXFP4 consumer, so dropping it clears the wall without touching
+    # the served model. Restoring DSpark needs the MXFP4-on-sm121 path solved
+    # (teach fp8.py's is_sm120 gate about sm121 AND confirm the cutlass MXFP4
+    # kernel runs there, or route the draft's mxfp4 pool through b12x_next). Flip
+    # back with SPEC_ALGO=DSPARK once that holds.
+    "SPEC_ALGO": os.getenv("SPEC_ALGO", "off"),
     "DSPARK_BLOCK_SIZE": "5",
     # --- overlay adapters (the upstream production line) -------------------
     "DSV41_INDEXER_CHUNKED": "1",
