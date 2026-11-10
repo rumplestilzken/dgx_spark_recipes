@@ -129,5 +129,24 @@ log_var ADAPTER
 log_var B12X
 log_var ENGINE_PY
 log "PYTHONPATH=${PYTHONPATH:-<unset>}"
-log "overlay gate OK (no image files modified)"
+log "overlay gate OK (base overlay unchanged; MXFP4 patch applied below)"
+
+#####################################################################
+# MXFP4 Engram patch  (THIS LANE ONLY -- unlike the base overlay, this mod
+# DOES modify image files)
+#####################################################################
+# The checkpoint's Engram tables are MXFP4; the image's packer + backend are
+# FP8-only. Apply the patch HERE, as root, in the pre-serve hook: the serve runs
+# as a non-root user and /opt/dsv41 is root-owned, so launcher.py's own call
+# hits EACCES and the engine then crashes on engram_backend's FP8-only assert.
+# Idempotent (engram_mxfp4.py no-ops once the MARK is present).
+log "applying MXFP4 Engram patch (packer + backend) as $(id -un)"
+python3 "${MOD_DIR}/engram_mxfp4.py" >>"${LOGDIR}/${MOD_NAME}.log" 2>&1 \
+  || die "engram mxfp4 patch raised; see ${LOGDIR}/${MOD_NAME}.log"
+grep -q "nvfp4-10m mod" /opt/dsv41/scripts/pack_engram.py \
+  || die "engram packer patch did not land in /opt/dsv41/scripts/pack_engram.py"
+grep -q "nvfp4-10m mod" /opt/dsv41/adapter/engram_backend.py \
+  || die "engram backend patch did not land in /opt/dsv41/adapter/engram_backend.py"
+log "engram mxfp4 patch OK (packer + backend carry the MARK)"
+
 log "Done."
