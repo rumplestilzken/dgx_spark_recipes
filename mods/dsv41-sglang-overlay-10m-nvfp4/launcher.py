@@ -188,6 +188,18 @@ RECIPE_ENV: dict[str, str] = {
     # that inherited DUPLICATE (last-wins) silently forced b12x_next on + the
     # mxfp4 runner, and is removed so this "0" governs. Flip via env to experiment.
     "DSV41_MOE_B12X_NEXT": os.getenv("DSV41_MOE_B12X_NEXT", "0"),
+    # Draft (DSpark) MoE runner is a SEPARATE knob: speculative_moe_runner_backend
+    # (sglang arg_groups/fields/spec.py) defaults to None -> flashinfer_mxfp4, and
+    # does NOT inherit --moe-runner-backend above. boot.py emits no --speculative-*
+    # MoE flag, so pin it via EXTRA_SGLANG_ARGS (boot.py:465 appends to the argv).
+    # The draft experts are the same NVFP4 as the target (checkpoint layer 39:
+    # U8 + F8_E4M3 group-16 scale), but flashinfer_mxfp4 routes fp4 block-scale MoE
+    # through flashinfer's trtllm GEMM, whose cubins cover sm100/103/107 only --
+    # NOT sm121 (GB10). cutlass is the sm121 path the target already uses. Replace
+    # the whole arg string via the EXTRA_SGLANG_ARGS env (it is otherwise unused
+    # here -- the 10M rope factor rides in config.json, not this).
+    "EXTRA_SGLANG_ARGS": os.getenv(
+        "EXTRA_SGLANG_ARGS", "--speculative-moe-runner-backend flashinfer_cutlass"),
     # 10M lane: model_config._derive_context_length RAISES when context_length >
     # max_position_embeddings (1,048,576 in config.json). This makes it warn and
     # accept instead - verified at configs/model_config.py:1039-1060.
