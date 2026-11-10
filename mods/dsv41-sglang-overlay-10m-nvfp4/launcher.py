@@ -171,11 +171,22 @@ RECIPE_ENV: dict[str, str] = {
     # wrong without it. boot.py validates the engine; the gate below validates
     # the shards before we exec.
     "DSV41_REQUIRE_PACKED": "1",
-    # MoE runner: the deepseek_v4 override auto-detects this checkpoint
-    # (quant_algo MIXED_PRECISION + moe_quant_algo NVFP4) and picks
-    # flashinfer_trtllm_routed. That bypasses the mxfp4 fused pool the b12x
-    # adapter hooks, so b12x is OFF by default on this lane and can be forced
-    # back on with DSV41_MOE_B12X_NEXT=1 once its pool key is confirmed present.
+    # MoE runner. boot.py ALWAYS emits `--moe-runner-backend $MOE_RUNNER_BACKEND`
+    # (boot.py:415, default flashinfer_mxfp4 -- the FP8 lane's pool). There is no
+    # auto-detect path, and the recipe's own `--moe-runner-backend` CLI flag is
+    # DROPPED by this launcher (main() parse_known_args ignores unknown args, and
+    # boot.py rebuilds the whole argv from the env). This checkpoint's experts are
+    # NVFP4, and the NVFP4 MoE path raises NotImplementedError on FLASHINFER_MXFP4
+    # (modelopt_quant.py accepts is_flashinfer_cutlass / is_flashinfer_trtllm only).
+    # Pin cutlass: the backend the engine itself names in that error and the safe
+    # one on sm_121 -- flashinfer_trtllm_routed is NVIDIA-validated on GB300, not
+    # GB10. Override via the env var of the same name to try trtllm once confirmed.
+    "MOE_RUNNER_BACKEND": os.getenv("MOE_RUNNER_BACKEND", "flashinfer_cutlass"),
+    # b12x_next OFF for this lane: it only hooks FusedOpPool[("none",
+    # "flashinfer_mxfp4")] (moe_b12x_next.py:83), which a cutlass runner never
+    # creates. The FP8 parent overlay also set this key to "1" later in this dict;
+    # that inherited DUPLICATE (last-wins) silently forced b12x_next on + the
+    # mxfp4 runner, and is removed so this "0" governs. Flip via env to experiment.
     "DSV41_MOE_B12X_NEXT": os.getenv("DSV41_MOE_B12X_NEXT", "0"),
     # 10M lane: model_config._derive_context_length RAISES when context_length >
     # max_position_embeddings (1,048,576 in config.json). This makes it warn and
@@ -223,7 +234,11 @@ RECIPE_ENV: dict[str, str] = {
     "DSV41_DRAFT_MAIN_PROJ_SPLIT": "1",
     "DSV41_SPLIT_COMPACT_GATHER": "1",
     "DSV41_ROUTER_LIVE": "1",
-    "DSV41_MOE_B12X_NEXT": "1",
+    # DSV41_MOE_B12X_NEXT is defined in the MoE-runner section above (default "0"
+    # for this NVFP4 lane). The FP8 parent overlay's hardcoded "1" lived HERE and,
+    # as a later duplicate key in the same dict literal, silently won -- forcing
+    # b12x_next on and the unsupported flashinfer_mxfp4 runner. Removed. The
+    # DETERMINISTIC sub-flag stays: inert while b12x_next is off, correct if re-enabled.
     "DSV41_MOE_B12X_NEXT_DETERMINISTIC": "1",
     "DSV41_HC_FUSED": "1",
     "DSV41_PREFILL_SP": "1",
