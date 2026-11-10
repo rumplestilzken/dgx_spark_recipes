@@ -95,6 +95,7 @@ command: >
   --enforce_eager=True
   --served-model-name {served_model_name}
   --context-length {max_model_len}
+  --moe-runner-backend flashinfer_cutlass 
 
 env:
   DSV41_INDEXER_LOGITS_BUDGET_BYTES: '536870912'
