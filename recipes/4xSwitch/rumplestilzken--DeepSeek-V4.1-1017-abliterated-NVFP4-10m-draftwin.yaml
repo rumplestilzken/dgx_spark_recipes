@@ -114,7 +114,7 @@ env:
   # 8M turn). If the transient is flat through 2M→4M, this margin should hold
   # a ladder that reaches past 4M without OOMing node1, proving whether we can
   # push further to 0.93 (~10.7M) for the full 10,485,760 turn.
-  DSV41_MEM_FRACTION: '0.92'
+  DSV41_MEM_FRACTION: '0.90'
   DSV41_MAX_TOTAL_TOKENS: '10700000'
   # --- 2026-11-10 ladder tuning (crash at 4M, then measured) ------------------
   # Crash at 4M was a TRANSIENT GPU alloc (_memdescAllocInternal) at 2.9M depth,
