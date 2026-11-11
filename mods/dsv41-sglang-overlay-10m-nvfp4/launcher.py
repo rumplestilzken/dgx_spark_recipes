@@ -168,7 +168,7 @@ RECIPE_ENV: dict[str, str] = {
     # takes the running-request and pool values back to the 1M lane's.
     "MEM_FRACTION_STATIC": os.getenv("DSV41_MEM_FRACTION", "0.86"),
     "MAX_RUNNING_REQUESTS": os.getenv("DSV41_MAX_RUNNING_REQUESTS", "2"),
-    "CHUNKED_PREFILL_SIZE": "4096",
+    "CHUNKED_PREFILL_SIZE": os.getenv("DSV41_CHUNKED_PREFILL_SIZE", "4096"),
     "CUDA_GRAPH_MAX_BS_DECODE": os.getenv("DSV41_CUDA_GRAPH_MAX_BS_DECODE", "1"),
     # --- nvfp4 lane: engram is MXFP4, checkpoint is hybrid FP8+NVFP4 --------
     # The Engram tables are packed E2M1 and are expanded to FP8 at pack time, so

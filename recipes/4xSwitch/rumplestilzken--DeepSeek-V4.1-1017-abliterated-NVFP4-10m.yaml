@@ -104,7 +104,23 @@ env:
   # 10M shape on the nvfp4 mod (see POOL above)
   DSV41_MEM_FRACTION: '0.86'
   DSV41_MAX_TOTAL_TOKENS: '10700000'
-  DSV41_MAX_RUNNING_REQUESTS: '2'
+  # --- 2026-11-10 OOM fix (ladder crashed at 4M, 18:58) -----------------------
+  # Crash was a TRANSIENT GPU alloc (_memdescAllocInternal) at 2.9M prefill depth
+  # while the full-attn pool was only 0.67 used -- NOT pool-full, NOT earlyoom
+  # (host had 5-6 GiB free, swap untouched). Log math showed the full-attn pool
+  # sized to only ~4.3M tokens, ~half the ~10-11M that 0.86 should buy: the DSpark
+  # MTP draft keeps its OWN context-proportional KV cache, which both ate the
+  # transient that OOM'd AND halved the target pool at sizing time. Spec decode is
+  # useless for a prefill needle test (speeds decode only), so:
+  #   * SPEC_ALGO off  -> target-only (the launcher's documented proven fallback);
+  #     frees the draft KV pool + b12x MXFP4 draft-expert pools. Primary fix.
+  #   * max-running 2->1 -> frees the 2nd scheduler slot's reserved workspace;
+  #     the ladder only ever runs one request.
+  #   * chunked-prefill 4096->2048 -> halves the per-step prefill activation.
+  # Restore SPEC_ALGO=DSPARK + max-running 2 + chunk 4096 for the serving lane.
+  SPEC_ALGO: 'off'
+  DSV41_MAX_RUNNING_REQUESTS: '1'
+  DSV41_CHUNKED_PREFILL_SIZE: '2048'
   DSV41_CUDA_GRAPH_MAX_BS_DECODE: '1'
 
 readiness:
