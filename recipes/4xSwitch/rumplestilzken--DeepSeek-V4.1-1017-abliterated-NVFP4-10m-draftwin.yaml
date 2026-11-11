@@ -49,7 +49,7 @@
 recipe_version: "2"
 model: rumplestilzken/DeepSeek-V4.1-1017-abliterated-NVFP4
 runtime: sglang
-container: littlecedar/dgx-spark-dsv41:canary-roce@sha256:acfc331a959b247a1ce356a864d167a7bf2bffd91694d9caa1102e334ff4ee93
+container: littlecedar/dgx-spark-dsv41:canary-roce-20261022@sha256:0cbe228a8788ec06472dd2dc5cd31acb117ec5ba5101f2442d32e54d2ae5b8ea
 min_nodes: 4
 
 metadata:
@@ -106,7 +106,17 @@ command: >
   --moe-runner-backend flashinfer_cutlass 
 
 env:
-  DSV41_INDEXER_LOGITS_BUDGET_BYTES: '536870912'
+  # --- 2026-11-10 shed stack (stage A) ---------------------------------------
+  # 0.92/.93 both booted to a permanent 503 and died on the 3600 s READY
+  # timeout (11-11 02:29Z): node1 carries a ~6.9 GB boot transient against a
+  # 3.5 GB margin at 0.86, and each +0.01 fraction adds 1.25 GB of pool, so
+  # 0.92 is ~4.5 GB underwater before init allocates. 0.90 is the measured
+  # survivable ceiling; the shed stack below claws back ~2-3 GB/node of the
+  # transient so the boot holds and the pool can be read against an 8M target.
+  # indexer 512 -> 256 MB, engram page cache 4 -> 2 GiB, chunk 2048 -> 1024.
+  # Image pinned 20261022 (0cbe228a): carries #45038 history_row clamp.
+  DSV41_INDEXER_LOGITS_BUDGET_BYTES: '268435456'
+  DSV41_CACHE_GIB: '2'
   # shared pack key: the tables are not ablated, one pack serves both recipes
   DSV41_ENGRAM_PACK_KEY: rumplestilzken__DeepSeek-V4.1-Flash-1017-NVFP4
   # --- 2026-11-10 stage-A pool target (from 4M ladder result) ----------
@@ -127,7 +137,7 @@ env:
   # closing that gap is a mem_fraction raise + draft-window bound, NOT killing spec.
   SPEC_ALGO: 'DSPARK'
   DSV41_MAX_RUNNING_REQUESTS: '1'
-  DSV41_CHUNKED_PREFILL_SIZE: '2048'
+  DSV41_CHUNKED_PREFILL_SIZE: '1024'
   DSV41_CUDA_GRAPH_MAX_BS_DECODE: '1'
   # --- 2026-11-10 EXPERIMENT: bound the DSpark draft's attention window --------
   # Baseline measured the DSpark pool at 5.16M (half of the 10.486M a 10M turn
