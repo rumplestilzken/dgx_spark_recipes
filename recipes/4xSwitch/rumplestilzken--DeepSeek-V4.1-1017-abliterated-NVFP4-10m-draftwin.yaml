@@ -144,7 +144,21 @@ env:
   # GiB/node at READY; 0.9375 costs ~0.3 GiB more. CACHE_GIB note: env delivers
   # 1 but the Engram reader reports cache=2.0GiB (reader-side clamp/format);
   # the trim's host saving did not materialize — left at 1, harmless.
-  DSV41_MEM_FRACTION: '0.9375'
+  # --- 2026-11-16 (evening) step DOWN to 0.93 after the full-stack crash ------
+  # 0.9375 with earlyoom stopped = node-fatal: the pool first-touch at the
+  # health transition exhausted the head node's host slack (NVRM
+  # _memdescAllocInternal flood on all ranks), 133 wedged off the network,
+  # full stack crashed, all four physically rebooted. Boot 1's "1-s transient"
+  # was earlyoom SAVING the node — the kill freed the RSS that let avail
+  # recover. CONSTRAINT REFRAMED: host slack (1-f)x121 GB vs a ~5-7 GB
+  # first-touch transient. 0.90 (12.1 GB) proven clean; 0.935 (7.9 GB) died by
+  # shed; 0.9375 unprotected killed the node. The full 10,485,760 pool is
+  # UNREACHABLE by fraction on 121 GB nodes. New plan: 0.93 (8.5 GB slack)
+  # WITH earlyoom armed (a shed = recoverable probe failure), expected pool
+  # ~10.0M; top ladder rung trims to realized pool x ~0.97. Wedge-proofing
+  # now on every node: min_free_kbytes=1GiB, oom_kill_allocating_task=1,
+  # SBSA hardware watchdog 60 s via systemd (see port doc).
+  DSV41_MEM_FRACTION: '0.93'
   DSV41_MAX_TOTAL_TOKENS: '10700000'
   # --- 2026-11-10 ladder tuning (crash at 4M, then measured) ------------------
   # Crash at 4M was a TRANSIENT GPU alloc (_memdescAllocInternal) at 2.9M depth,
