@@ -1,11 +1,12 @@
 # Recipe: rumplestilzken/DeepSeek-V4.1-1017-abliterated-NVFP4-10M @ 10M context
 # ============================================================================
-# DRAFT-WINDOW EXPERIMENT VARIANT -- boot deliberately, NOT the baseline.
-# Identical to rumplestilzken--DeepSeek-V4.1-1017-abliterated-NVFP4-10m.yaml
-# except the env sets EXTRA_SGLANG_ARGS with --speculative-draft-window-size 8192
-# (see the env block at the bottom). Keeps DSpark ON; tests whether bounding the
-# MTP draft window frees pool/transient memory toward a deeper turn. The
-# unmodified sibling remains the measured baseline (DSpark pool 5.16M).
+# STAGE-B 10M LANE (formerly the "draft-window experiment" variant).
+# 2026-11-16 MEASURED: --speculative-draft-window-size is a NO-OP for DSPARK —
+# the engine logs "has no effect with speculative_algorithm=DSPARK (honored by
+# Llama EAGLE-3 and DFLASH only)". The experiment's premise is void; the flag
+# is removed and this file now simply IS the 10M lane at the stage-B fraction.
+# Consequence: pool 10,380,288 @ 0.935 is the TRUE DSPARK pool, no window term.
+# The unmodified sibling remains the 0.86 baseline (DSpark pool 5.16M).
 # ============================================================================
 #
 # The abliterated NVFP4 lane at a 10,485,760-token window. Sibling of
@@ -44,8 +45,12 @@
 #   * 2026-11-10 stage A booted at 0.90 + shed stack: READY, pool 8,110,080.
 #     Ladder 1M PASS, 2M PASS; 4M died on a TRANSIENT GPU alloc at ~2.9M depth
 #     (pool 0.67 used -- not pool-full). Post-crash 2M probe PASS (bounded mem).
-#   * 2026-11-16 this revision: 0.935 + cache 1 GiB + SKIP_SMOKE, aimed at the
-#     full 10,485,760 turn. See dated env layers.
+#   * 2026-11-16 stage-B boot 1 at 0.935: clean to port-bind, pool MEASURED
+#     10,380,288 (105k SHORT of the 10,485,760 target); scheduler then
+#     SIGTERMed by host earlyoom on a 1-second avail dip at bind+5 s (see the
+#     SKIP_SMOKE layer below for the evidence). This revision: 0.9375
+#     (+162k pool), earlyoom stopped for ladder runs, SKIP_SMOKE kept,
+#     draft-window flag removed (DSPARK no-op, measured).
 #
 # `model_revision`: the repack repo's own commit (main). The base commit the
 # tensors come from is af97f27f4d38 — pin here once the repo commit is minted.
@@ -117,7 +122,7 @@ env:
   # survivable ceiling; the shed stack below claws back ~2-3 GB/node of the
   # transient so the boot holds and the pool can be read against an 8M target.
   # indexer 512 -> 256 MB, engram page cache 4 -> 2 GiB (11-16: 2 -> 1 GiB,
-  # +1 GiB/node host slack toward the 0.935 raise), chunk 2048 -> 1024.
+  # +1 GiB/node host slack toward the raise), chunk 2048 -> 1024.
   # Image pinned 20261022 (0cbe228a): carries #45038 history_row clamp.
   DSV41_INDEXER_LOGITS_BUDGET_BYTES: '268435456'
   DSV41_CACHE_GIB: '1'
@@ -128,16 +133,18 @@ env:
   # 8M turn). If the transient is flat through 2M→4M, this margin should hold
   # a ladder that reaches past 4M without OOMing node1, proving whether we can
   # push further toward the full 10,485,760 turn.
-  # --- 2026-11-16 stage B: 0.935 for the 10M turn ------------------------------
+  # --- 2026-11-16 stage B: fraction for the 10M turn ---------------------------
   # Stage A MEASURED: READY at 0.90, pool (max_total_num_tokens) = 8,110,080.
-  # Slope from the two measured points (5,080,064 @ 0.86 draftwin; 8,110,080
-  # @ 0.90) = ~757.5k tokens per +0.01 fraction. 0.935 projects ~10.76M,
-  # clamped by DSV41_MAX_TOTAL_TOKENS to 10.7M >= 10,485,760 target (+214k
-  # margin). Host cost vs 0.90 is +4.36 GB/node against the 9.65 GB rank-0
-  # slack measured at stage-A ready, plus 1 GiB back from the cache trim ->
-  # ~6.3 GB margin for the boot transient (stage-A worst node carried ~6.9 GB
-  # at 0.86; the shed stack + graphs bs=1 brought stage A up clean at 0.90).
-  DSV41_MEM_FRACTION: '0.935'
+  # Stage-B boot 1 at 0.935 MEASURED pool = 10,380,288 — 105,472 SHORT of the
+  # 10,485,760 target (the manifest's 10,485,248-token prompt alone exceeds it).
+  # True slope (8,110,080 @ 0.90 -> 10,380,288 @ 0.935) = ~64.9k tokens per
+  # +0.001 fraction (the earlier 757.5k/0.01 projection from the 0.86 point was
+  # optimistic). 0.9375 -> +162k -> ~10,542k >= target (+57k margin), still
+  # under the 10.7M MAX_TOTAL pin. Host steady slack at 0.935 measured ~5.0
+  # GiB/node at READY; 0.9375 costs ~0.3 GiB more. CACHE_GIB note: env delivers
+  # 1 but the Engram reader reports cache=2.0GiB (reader-side clamp/format);
+  # the trim's host saving did not materialize — left at 1, harmless.
+  DSV41_MEM_FRACTION: '0.9375'
   DSV41_MAX_TOTAL_TOKENS: '10700000'
   # --- 2026-11-10 ladder tuning (crash at 4M, then measured) ------------------
   # Crash at 4M was a TRANSIENT GPU alloc (_memdescAllocInternal) at 2.9M depth,
@@ -147,33 +154,35 @@ env:
   #   DSPARK on = 5,080,064  |  off = 2,498,560  (spec-OFF HALVED the pool).
   # So the earlier "draft eats the pool" guess was BACKWARDS -- MTP's accounting
   # yields the LARGER pool. DSpark stays ON. Neither reaches 10.486M at 0.86;
-  # closing that gap is a mem_fraction raise + draft-window bound, NOT killing spec.
+  # closing that gap is a mem_fraction raise, NOT killing spec.
   SPEC_ALGO: 'DSPARK'
   DSV41_MAX_RUNNING_REQUESTS: '1'
   DSV41_CHUNKED_PREFILL_SIZE: '1024'
   DSV41_CUDA_GRAPH_MAX_BS_DECODE: '1'
-  # --- 2026-11-16 kill the post-ready killer: skip boot.py's smoke gauntlet ----
-  # Identified mechanism of BOTH prior post-ready deaths: boot.py serve() calls
-  # smoke() UN-TRAPPED once /health goes 200; smoke() carries hard asserts
-  # (structured output, tool round-trip, native-vision image_tokens == 1024) and
-  # its requests use timeout=600. Any assert/HTTP failure propagates -> serve()'s
-  # finally runs stop() -> os.killpg(engine, SIGTERM): scheduler dies seconds
-  # after ready (the .90 8-s signature); a hung request dies at exactly 600 s
-  # (the .92/.93 signature). Warmup, by contrast, is explicitly non-fatal.
-  # The ladder is the real validation on this lane; smoke adds only risk here.
-  # REMOVE for serving lanes -- smoke is the guard that belongs in front of users.
+  # --- 2026-11-16 SKIP_SMOKE (kept) + the REAL post-ready killer: earlyoom -----
+  # smoke() was the prime suspect (un-trapped in serve(); asserts + timeout=600
+  # -> finally -> stop() -> killpg SIGTERM). DISPROVEN as the trigger on the
+  # first stage-B boot: with SKIP_SMOKE=1 active the scheduler was STILL
+  # SIGTERMed 5 s after port-bind, with /health still 503 (smoke never ran).
+  # journalctl spark-a669 17:27:21 EST: "low memory! at or below SIGTERM
+  # limits: mem 2.00%" -> "sending SIGTERM to ... sglang::schedul (badness
+  # 984)" on a ONE-SECOND avail dip 5,011 -> 2,300 -> 6,145 MiB (KV pool
+  # first-touch at port-bind). earlyoom (-m 2 -s 80 --prefer sglang|python;
+  # the swap-free<80% gate stays armed once swap use exceeds ~6.3 GiB during
+  # weight load) is the post-ready killer of 11-10 and plausibly the .92/.93
+  # init deaths too. MITIGATION for ladder runs: systemctl stop earlyoom on
+  # all 4 nodes (node-guard.sh keeps real-OOM cover: sustained 2 GiB floor
+  # x 2 samples, hung-task/Xid -> docker stop). RESTORE earlyoom after the
+  # run. SKIP_SMOKE stays: it removes a real failure class (the native-vision
+  # assert has no place on a text ladder) and is how the kill was isolated.
   SKIP_SMOKE: '1'
-  # --- 2026-11-10 EXPERIMENT: bound the DSpark draft's attention window --------
-  # Baseline measured the DSpark pool at 5.16M (half of the 10.486M a 10M turn
-  # needs). This variant keeps DSpark ON but bounds the MTP draft's window to test
-  # whether that frees memory -- pool and/or the prefill transient -- without
-  # killing the draft. boot.py appends EXTRA_SGLANG_ARGS to argv (boot.py:465,
-  # whitespace-split), so this MUST preserve the launcher's default
-  # --speculative-moe-runner-backend flashinfer_mxfp4 (the MXFP4 draft on sm121).
-  # After boot, measure: /get_server_info max_total_num_tokens (pool delta?), the
-  # per-node prefill memory peak (transient delta?), and decode accept-rate (does
-  # the bound cost DSpark's speed?). Sweep the window 4096/8192/32768 if promising.
-  EXTRA_SGLANG_ARGS: '--speculative-moe-runner-backend flashinfer_mxfp4 --speculative-draft-window-size 8192'
+  # --- 2026-11-16 draft backend only (window flag removed as measured no-op) ---
+  # boot.py appends EXTRA_SGLANG_ARGS to argv (boot.py:465, whitespace-split);
+  # this preserves the launcher's default --speculative-moe-runner-backend
+  # flashinfer_mxfp4 (the MXFP4 draft on sm121). --speculative-draft-window-size
+  # was removed: the engine logs it "has no effect with
+  # speculative_algorithm=DSPARK (honored by Llama EAGLE-3 and DFLASH only)".
+  EXTRA_SGLANG_ARGS: '--speculative-moe-runner-backend flashinfer_mxfp4'
 
 readiness:
   inference: false
