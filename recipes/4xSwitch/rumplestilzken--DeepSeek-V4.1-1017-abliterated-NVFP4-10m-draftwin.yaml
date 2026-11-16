@@ -33,16 +33,19 @@
 # path from it and the tables are not ablated, so one pack serves every recipe:
 #     --model nvidia/DeepSeek-V4.1-Flash-1017-NVFP4
 #
-# POOL: 0.86, not the 1M lane's 0.78. The pool must hold 10,485,760 tokens x
-# 1670.75 B = 17.52 GB/node plus ~1.15 GB fixed SWA state; the group-16 expert
-# scale byte is +4.2 GB/node of resident constant, so 0.84 lands ~9.4M (short) and
-# 0.86 restores ~11M. Host slack at 0.86 is ~18.7 GB; the NVRM OOM on the head
-# node is the risk, not the OOM killer. max_running_requests 2 / decode graph 1.
+# POOL (original 0.86 design arithmetic -- superseded by the dated env layers
+# below; DSV41_MEM_FRACTION carries the live value): the pool must hold
+# 10,485,760 tokens x 1670.75 B = 17.52 GB/node plus ~1.15 GB fixed SWA state;
+# the group-16 expert scale byte is +4.2 GB/node of resident constant, so 0.84
+# lands ~9.4M (short) and 0.86 restores ~11M. The NVRM OOM on the head node is
+# the risk, not the OOM killer.
 #
-# RISK, stated plainly: nothing here has been booted, same as both siblings.
-# 10.49M is 10x past the YaRN calibration and the abliteration adds an unmeasured
-# term. The 1M abliterated lane is the first boot; this recipe is the one that
-# costs the live lane a restart.
+# STATUS (was "unbooted"; no longer true):
+#   * 2026-11-10 stage A booted at 0.90 + shed stack: READY, pool 8,110,080.
+#     Ladder 1M PASS, 2M PASS; 4M died on a TRANSIENT GPU alloc at ~2.9M depth
+#     (pool 0.67 used -- not pool-full). Post-crash 2M probe PASS (bounded mem).
+#   * 2026-11-16 this revision: 0.935 + cache 1 GiB + SKIP_SMOKE, aimed at the
+#     full 10,485,760 turn. See dated env layers.
 #
 # `model_revision`: the repack repo's own commit (main). The base commit the
 # tensors come from is af97f27f4d38 — pin here once the repo commit is minted.
@@ -113,18 +116,28 @@ env:
   # 0.92 is ~4.5 GB underwater before init allocates. 0.90 is the measured
   # survivable ceiling; the shed stack below claws back ~2-3 GB/node of the
   # transient so the boot holds and the pool can be read against an 8M target.
-  # indexer 512 -> 256 MB, engram page cache 4 -> 2 GiB, chunk 2048 -> 1024.
+  # indexer 512 -> 256 MB, engram page cache 4 -> 2 GiB (11-16: 2 -> 1 GiB,
+  # +1 GiB/node host slack toward the 0.935 raise), chunk 2048 -> 1024.
   # Image pinned 20261022 (0cbe228a): carries #45038 history_row clamp.
   DSV41_INDEXER_LOGITS_BUDGET_BYTES: '268435456'
-  DSV41_CACHE_GIB: '2'
+  DSV41_CACHE_GIB: '1'
   # shared pack key: the tables are not ablated, one pack serves both recipes
   DSV41_ENGRAM_PACK_KEY: rumplestilzken__DeepSeek-V4.1-Flash-1017-NVFP4
   # --- 2026-11-10 stage-A pool target (from 4M ladder result) ----------
   # Raising to 0.90 grows the KV pool from 5.08M toward ~8.4M (enough for an
   # 8M turn). If the transient is flat through 2M→4M, this margin should hold
   # a ladder that reaches past 4M without OOMing node1, proving whether we can
-  # push further to 0.93 (~10.7M) for the full 10,485,760 turn.
-  DSV41_MEM_FRACTION: '0.90'
+  # push further toward the full 10,485,760 turn.
+  # --- 2026-11-16 stage B: 0.935 for the 10M turn ------------------------------
+  # Stage A MEASURED: READY at 0.90, pool (max_total_num_tokens) = 8,110,080.
+  # Slope from the two measured points (5,080,064 @ 0.86 draftwin; 8,110,080
+  # @ 0.90) = ~757.5k tokens per +0.01 fraction. 0.935 projects ~10.76M,
+  # clamped by DSV41_MAX_TOTAL_TOKENS to 10.7M >= 10,485,760 target (+214k
+  # margin). Host cost vs 0.90 is +4.36 GB/node against the 9.65 GB rank-0
+  # slack measured at stage-A ready, plus 1 GiB back from the cache trim ->
+  # ~6.3 GB margin for the boot transient (stage-A worst node carried ~6.9 GB
+  # at 0.86; the shed stack + graphs bs=1 brought stage A up clean at 0.90).
+  DSV41_MEM_FRACTION: '0.935'
   DSV41_MAX_TOTAL_TOKENS: '10700000'
   # --- 2026-11-10 ladder tuning (crash at 4M, then measured) ------------------
   # Crash at 4M was a TRANSIENT GPU alloc (_memdescAllocInternal) at 2.9M depth,
@@ -139,6 +152,17 @@ env:
   DSV41_MAX_RUNNING_REQUESTS: '1'
   DSV41_CHUNKED_PREFILL_SIZE: '1024'
   DSV41_CUDA_GRAPH_MAX_BS_DECODE: '1'
+  # --- 2026-11-16 kill the post-ready killer: skip boot.py's smoke gauntlet ----
+  # Identified mechanism of BOTH prior post-ready deaths: boot.py serve() calls
+  # smoke() UN-TRAPPED once /health goes 200; smoke() carries hard asserts
+  # (structured output, tool round-trip, native-vision image_tokens == 1024) and
+  # its requests use timeout=600. Any assert/HTTP failure propagates -> serve()'s
+  # finally runs stop() -> os.killpg(engine, SIGTERM): scheduler dies seconds
+  # after ready (the .90 8-s signature); a hung request dies at exactly 600 s
+  # (the .92/.93 signature). Warmup, by contrast, is explicitly non-fatal.
+  # The ladder is the real validation on this lane; smoke adds only risk here.
+  # REMOVE for serving lanes -- smoke is the guard that belongs in front of users.
+  SKIP_SMOKE: '1'
   # --- 2026-11-10 EXPERIMENT: bound the DSpark draft's attention window --------
   # Baseline measured the DSpark pool at 5.16M (half of the 10.486M a 10M turn
   # needs). This variant keeps DSpark ON but bounds the MTP draft's window to test
