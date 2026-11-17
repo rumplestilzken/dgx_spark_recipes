@@ -179,7 +179,7 @@ env:
   # So the earlier "draft eats the pool" guess was BACKWARDS -- MTP's accounting
   # yields the LARGER pool. DSpark stays ON. Neither reaches 10.486M at 0.86;
   # closing that gap is a mem_fraction raise, NOT killing spec.
-  SPEC_ALGO: 'off'
+  SPEC_ALGO: 'DSPARK'
   # --- 2026-11-16 ~7:10 PM (Nick's order): DSPARK OFF to recover VRAM for 10M --
   # "Get it working without DSPARK to recover the VRAM to make 10M in full and
   # then when verified we will cross that bridge." Draft weights + draft CUDA
@@ -219,7 +219,7 @@ env:
   # '--speculative-moe-runner-backend flashinfer_mxfp4' (the MXFP4 draft on
   # sm121). --speculative-draft-window-size stays dead either way (DSPARK
   # no-op, measured 11-16).
-  EXTRA_SGLANG_ARGS: ''
+  EXTRA_SGLANG_ARGS: '--speculative-moe-runner-backend flashinfer_mxfp4'
 
 readiness:
   inference: false
