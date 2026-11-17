@@ -179,7 +179,20 @@ env:
   # So the earlier "draft eats the pool" guess was BACKWARDS -- MTP's accounting
   # yields the LARGER pool. DSpark stays ON. Neither reaches 10.486M at 0.86;
   # closing that gap is a mem_fraction raise, NOT killing spec.
-  SPEC_ALGO: 'DSPARK'
+  SPEC_ALGO: 'off'
+  # --- 2026-11-16 ~7:10 PM (Nick's order): DSPARK OFF to recover VRAM for 10M --
+  # "Get it working without DSPARK to recover the VRAM to make 10M in full and
+  # then when verified we will cross that bridge." Draft weights + draft CUDA
+  # graphs + mxfp4 draft workspace come out; pool re-measured at 0.915 (the
+  # proven-stable fraction). CAUTION, prior data: 11-10 at 0.86 measured
+  # spec-OFF pool = 2,498,560 vs ON = 5,080,064 (accounting HALVED) — but
+  # tonight proved pool numbers are state-dependent, so we re-measure rather
+  # than trust either. The pool line decides; fraction adjusts only within the
+  # no-shed ceiling (~0.92). Boot 6 note: died IDLE post-READY (OOM took the
+  # container, per Nick) — 0.915 idle margin is thinner than the 30 s CSV
+  # suggested; spec-off may widen it (less resident weight).
+  # Restore for DSPARK later: SPEC_ALGO 'DSPARK' + EXTRA_SGLANG_ARGS
+  # '--speculative-moe-runner-backend flashinfer_mxfp4'.
   DSV41_MAX_RUNNING_REQUESTS: '1'
   DSV41_CHUNKED_PREFILL_SIZE: '1024'
   DSV41_CUDA_GRAPH_MAX_BS_DECODE: '1'
@@ -200,13 +213,13 @@ env:
   # run. SKIP_SMOKE stays: it removes a real failure class (the native-vision
   # assert has no place on a text ladder) and is how the kill was isolated.
   SKIP_SMOKE: '1'
-  # --- 2026-11-16 draft backend only (window flag removed as measured no-op) ---
+  # --- 2026-11-16 draft backend arg REMOVED with DSPARK off (restore with it) --
   # boot.py appends EXTRA_SGLANG_ARGS to argv (boot.py:465, whitespace-split);
-  # this preserves the launcher's default --speculative-moe-runner-backend
-  # flashinfer_mxfp4 (the MXFP4 draft on sm121). --speculative-draft-window-size
-  # was removed: the engine logs it "has no effect with
-  # speculative_algorithm=DSPARK (honored by Llama EAGLE-3 and DFLASH only)".
-  EXTRA_SGLANG_ARGS: '--speculative-moe-runner-backend flashinfer_mxfp4'
+  # empty = nothing appended. With SPEC_ALGO=DSPARK this must carry
+  # '--speculative-moe-runner-backend flashinfer_mxfp4' (the MXFP4 draft on
+  # sm121). --speculative-draft-window-size stays dead either way (DSPARK
+  # no-op, measured 11-16).
+  EXTRA_SGLANG_ARGS: ''
 
 readiness:
   inference: false
