@@ -206,7 +206,17 @@ env:
   # flashinfer_mxfp4 (the MXFP4 draft on sm121). --speculative-draft-window-size
   # was removed: the engine logs it "has no effect with
   # speculative_algorithm=DSPARK (honored by Llama EAGLE-3 and DFLASH only)".
-  EXTRA_SGLANG_ARGS: '--speculative-moe-runner-backend flashinfer_mxfp4'
+  # --- 2026-11-22 (Quill, Nick's order): attn_cp_size=2 — the 10M lever -----------
+  # The replicated MLA latent is the whole per-node KV cost. attn_cp=2 shards it
+  # across a rank pair (tp4 -> 2x attn-CP groups), ~halving per-node KV so the pool
+  # ~doubles at the same 0.915 (6.45M measured DSPARK-on -> target ~11-12M, clears
+  # 10,485,760). dsv4 implements it (attn_cp_metadata) and Engram hash_ids are
+  # already sharded by attn_cp_rank::attn_cp_size. KEEP DSPARK: measured spec-OFF
+  # SHRINKS the pool (6.45M->4.81M @0.915), and the CP-vs-spec conflicts are all
+  # fenced behind DP-attention / PD-disaggregation, neither of which this lane runs.
+  # UNTESTED combo (attn_cp + dsv4 + Engram + DSPARK + b12x) — boot-only risk.
+  # Fallback if it trips: drop '--attn-cp-size 2' -> the proven 6.45M DSPARK lane.
+  EXTRA_SGLANG_ARGS: '--speculative-moe-runner-backend flashinfer_mxfp4 --attn-cp-size 2'
 
 readiness:
   inference: false
